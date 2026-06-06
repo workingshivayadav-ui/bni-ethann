@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "tanstack-start",
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "env": {
+    "API_URL": "https://bni-ethan-backend-production.up.railway.app",
+    "VITE_API_URL": "https://bni-ethan-backend-production.up.railway.app"
+  }
+}
