@@ -1,3 +1,32 @@
+function sanitizeNamePart(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, "_")
+    .replace(/[^a-zA-Z0-9_]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
+}
+
+/** MongoDB field: SHIVA_YADAV_attachments */
+export function memberAttachmentsFieldKey(firstName, lastName) {
+  const first = sanitizeNamePart(firstName) || "member";
+  const last = sanitizeNamePart(lastName) || "profile";
+  return `${first}_${last}_attachments`;
+}
+
+/** Read attachment array from dynamic or legacy `attachments` field. */
+export function readMemberAttachments(doc) {
+  if (!doc) return [];
+
+  const key = memberAttachmentsFieldKey(doc.firstName, doc.lastName);
+  const fromKey = doc[key];
+  if (Array.isArray(fromKey)) return fromKey;
+
+  if (Array.isArray(doc.attachments)) return doc.attachments;
+
+  return [];
+}
+
 /** Cloudinary folder slug: bni-ethan/john-doe */
 export function memberFolderSlug(firstName, lastName) {
   const slug = `${firstName || ""}-${lastName || ""}`

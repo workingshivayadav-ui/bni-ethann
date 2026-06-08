@@ -5,7 +5,9 @@ import uploadOnCloudinary, { isCloudinaryConfigured } from "../config/cloudinary
 import {
   attachmentPublicId,
   attachmentResourceType,
+  memberAttachmentsFieldKey,
   memberStorageFolder,
+  readMemberAttachments,
 } from "../lib/memberFolder.js";
 import {
   getAuthenticatedDownloadUrl,
@@ -74,7 +76,7 @@ const formatMember = (doc) => {
     photoDataUrl: doc.photoUrl || doc.photoDataUrl || null,
     storageFolder:
       doc.storageFolder || memberStorageFolder(doc.firstName, doc.lastName),
-    attachments: (doc.attachments || []).map((a) => ({
+    attachments: readMemberAttachments(doc).map((a) => ({
       name: a.name,
       type: a.type,
       size: a.size,
@@ -261,13 +263,14 @@ router.post("/", async (req, res) => {
       });
     }
 
+    const attachmentsField = memberAttachmentsFieldKey(
+      data.firstName,
+      data.lastName,
+    );
+
     // Fallback if MongoDB not connected
     if (mongoose.connection.readyState !== 1) {
-      const {
-        photoDataUrl: _photo,
-        attachments: _attachments,
-        ...fields
-      } = data;
+      const { photoDataUrl: _photo, attachments: _attachments, ...fields } = data;
 
       const member = formatMember({
         id: makeId(),
@@ -275,7 +278,7 @@ router.post("/", async (req, res) => {
         ...fields,
         photoUrl,
         storageFolder,
-        attachments: uploadedAttachments,
+        [attachmentsField]: uploadedAttachments,
       });
 
       inMemoryStore.members.unshift(member);
@@ -304,7 +307,7 @@ router.post("/", async (req, res) => {
       notes: data.notes,
       photoUrl,
       storageFolder,
-      attachments: uploadedAttachments,
+      [attachmentsField]: uploadedAttachments,
     });
 
     return res.status(201).json({

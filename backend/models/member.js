@@ -1,33 +1,5 @@
 import mongoose from "mongoose";
 
-const AttachmentSchema = new mongoose.Schema(
-  {
-    name: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    type: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    size: {
-      type: Number,
-      required: true,
-    },
-    url: {
-      type: String,
-      trim: true,
-    },
-    folder: {
-      type: String,
-      trim: true,
-    },
-  },
-  { _id: false }
-);
-
 const MemberSchema = new mongoose.Schema(
   {
     firstName: {
@@ -107,15 +79,14 @@ const MemberSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    attachments: {
-      type: [AttachmentSchema],
-      default: [],
-    },
   },
   {
     timestamps: true,
+    strict: false,
   }
 );
+
+// Attachments are stored per member as `{firstName}_{lastName}_attachments` (dynamic key).
 
 const Member =
   mongoose.models.Member || mongoose.model("Member", MemberSchema);
