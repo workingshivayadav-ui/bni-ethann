@@ -6,17 +6,16 @@ import mongoose from "mongoose";
 import { fileURLToPath } from "url";
 
 import connectDB from "./config/mongodb.js";
-import { connectCloudinary } from "./config/cloudinary.js";
+import { connectCloudinary, isCloudinaryConfigured } from "./config/cloudinary.js";
 import membersRouter from "./routes/members.js";
 
 // Resolve current directory
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load environment variables
-dotenv.config({
-  path: path.join(__dirname, "config", ".env"),
-});
+// Load environment variables (local dev files + Railway/Vercel injected env)
+dotenv.config({ path: path.join(__dirname, "config", ".env") });
+dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
 const app = express();
 
@@ -37,6 +36,10 @@ app.get("/_health", (req, res) => {
     mongo: {
       connected: mongoose.connection.readyState === 1,
       database: mongoose.connection.db?.databaseName ?? null,
+    },
+    cloudinary: {
+      configured: isCloudinaryConfigured(),
+      cloudName: process.env.CLOUDINARY_CLOUD_NAME || null,
     },
   });
 });

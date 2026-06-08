@@ -12,8 +12,11 @@ function memberFolderSlug(firstName: string, lastName: string) {
 }
 
 function attachmentPublicId(fileName: string) {
-  const base = fileName.replace(/\.[^.]+$/, "");
-  const safe = base.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 80);
+  const safe = String(fileName || "document")
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]/g, "_")
+    .replace(/_+/g, "_")
+    .slice(0, 100);
   return safe || "document";
 }
 
@@ -26,12 +29,8 @@ function buildCloudinaryUrl(
   attachment: { name: string; type: string },
 ) {
   const publicId = `${storageFolder}/${attachmentPublicId(attachment.name)}`;
-  const resource = isImageDocument(attachment.type, attachment.name)
-    ? "image"
-    : isPdfDocument(attachment.type, attachment.name)
-      ? "raw"
-      : "raw";
-  return `https://res.cloudinary.com/${CLOUDINARY_CLOUD}/${resource}/upload/${publicId}`;
+  const resource = isImageDocument(attachment.type, attachment.name) ? "image" : "raw";
+  return `https://res.cloudinary.com/${CLOUDINARY_CLOUD}/${resource}/upload/${encodeURI(publicId)}`;
 }
 
 function isImageDocument(type: string, name?: string) {

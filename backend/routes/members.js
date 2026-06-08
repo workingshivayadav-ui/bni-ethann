@@ -1,9 +1,10 @@
 import express from "express";
 import mongoose from "mongoose";
 import Member from "../models/member.js";
-import uploadOnCloudinary from "../config/cloudinary.js";
+import uploadOnCloudinary, { isCloudinaryConfigured } from "../config/cloudinary.js";
 import {
   attachmentPublicId,
+  attachmentResourceType,
   memberStorageFolder,
 } from "../lib/memberFolder.js";
 import {
@@ -27,27 +28,21 @@ const estimateBytesFromDataUrl = (dataUrl) => {
   return Math.floor((base64.length * 3) / 4);
 };
 
+/** Stable CDN URL stored in MongoDB — do not replace with expiring signed URLs. */
 const resolveAttachmentUrl = (doc, attachment) => {
-  if (attachment.url) {
-    if (isPdfAttachment(attachment.type, attachment.name)) {
-      return getAuthenticatedDownloadUrl(attachment.url, attachment);
-    }
+  if (attachment.url?.includes("res.cloudinary.com")) {
     return attachment.url;
   }
 
   const folder =
     doc.storageFolder || memberStorageFolder(doc.firstName, doc.lastName);
-  if (!folder || !attachment.name) return null;
+  if (!folder || !attachment.name) return attachment.url || null;
 
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME || "dk78j6zxp";
   const publicId = `${folder}/${attachmentPublicId(attachment.name)}`;
-  const isImage =
-    attachment.type?.startsWith("image/") ||
-    /\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(attachment.name);
-  const resource = isImage ? "image" : "raw";
+  const resource = attachmentResourceType(attachment.type, attachment.name);
 
-  const fallback = `https://res.cloudinary.com/${cloudName}/${resource}/upload/${publicId}`;
-  return getAuthenticatedDownloadUrl(fallback, attachment);
+  return `https://res.cloudinary.com/${cloudName}/${resource}/upload/${publicId}`;
 };
 
 /** Normalize Mongo/in-memory docs to the shape the frontend expects. */
@@ -213,12 +208,20 @@ router.post("/", async (req, res) => {
       });
     }
 
+    if (!isCloudinaryConfigured()) {
+      const msg =
+        "File storage is not configured on the server. Please contact the administrator.";
+      return res.status(503).json({ success: false, message: msg, error: msg });
+    }
+
     const storageFolder = memberStorageFolder(data.firstName, data.lastName);
 
-    // Upload photo to member folder
+    // Upload photo to member folder: bni-ethan/first-last/profile-photo
     const photoUrl = await uploadOnCloudinary(data.photoDataUrl, {
       folder: storageFolder,
       public_id: "profile-photo",
+      resource_type: "image",
+      format: "png",
     });
 
     if (!photoUrl) {
@@ -234,10 +237,11 @@ router.post("/", async (req, res) => {
     const uploadedAttachments = [];
 
     for (const file of attachments) {
+      const resourceType = attachmentResourceType(file.type, file.name);
       const url = await uploadOnCloudinary(file.dataUrl, {
         folder: storageFolder,
         public_id: attachmentPublicId(file.name),
-        resource_type: isPdfAttachment(file.type, file.name) ? "raw" : "auto",
+        resource_type: resourceType,
       });
 
       if (!url) {

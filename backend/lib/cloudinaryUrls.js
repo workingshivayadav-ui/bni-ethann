@@ -24,11 +24,16 @@ export function getAuthenticatedDownloadUrl(storedUrl, { type, name } = {}) {
   if (!parsed) return storedUrl;
 
   if (isPdfAttachment(type, name)) {
-    const ext = (parsed.public_id.match(/\.([^.]+)$/)?.[1] || "pdf").toLowerCase();
-    const publicId = parsed.public_id.replace(/\.[^.]+$/, "");
+    const hasExt = /\.[a-z0-9]+$/i.test(parsed.public_id);
+    const ext = hasExt
+      ? parsed.public_id.match(/\.([^.]+)$/)?.[1]?.toLowerCase() || "pdf"
+      : "pdf";
+    const publicId = hasExt
+      ? parsed.public_id.replace(/\.[^.]+$/, "")
+      : parsed.public_id;
 
     return cloudinary.utils.private_download_url(publicId, ext, {
-      resource_type: parsed.resource_type,
+      resource_type: parsed.resource_type === "image" ? "raw" : parsed.resource_type,
       type: "upload",
       expires_at: Math.floor(Date.now() / 1000) + 7200,
     });
