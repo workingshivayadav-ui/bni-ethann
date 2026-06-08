@@ -82,19 +82,70 @@ export function memberStorageFolder(firstName, lastName) {
   return `bni-ethan/${memberFolderSlug(firstName, lastName)}`;
 }
 
-/** Safe Cloudinary public_id from filename — keeps extension so files are visible in the dashboard. */
-export function attachmentPublicId(fileName) {
-  const safe = String(fileName || "document")
-    .trim()
-    .replace(/[^a-zA-Z0-9._-]/g, "_")
-    .replace(/_+/g, "_")
-    .slice(0, 100);
-  return safe || "document";
+const IMAGE_MIME = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/bmp",
+  "image/svg+xml",
+]);
+
+const IMAGE_EXT = /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i;
+
+const MIME_EXT = {
+  "application/pdf": "pdf",
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/vnd.ms-excel": "xls",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "application/vnd.ms-powerpoint": "ppt",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
+  "text/plain": "txt",
+  "text/csv": "csv",
+  "application/zip": "zip",
+  "application/x-zip-compressed": "zip",
+  "application/x-rar-compressed": "rar",
+  "application/json": "json",
+};
+
+/** File extension for Cloudinary raw delivery (required for PDF/docs in dashboard). */
+export function attachmentFileExtension(type, name) {
+  const fromName = String(name || "").match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase();
+  if (fromName) return fromName;
+  if (type && MIME_EXT[type]) return MIME_EXT[type];
+  if (type === "application/octet-stream") return "bin";
+  return "bin";
 }
 
+/** Safe Cloudinary public_id — always includes extension for raw files. */
+export function attachmentPublicId(fileName, type) {
+  const base = String(fileName || "document")
+    .trim()
+    .replace(/\.[^.]+$/, "")
+    .replace(/[^a-zA-Z0-9._-]/g, "_")
+    .replace(/_+/g, "_")
+    .slice(0, 90);
+  const ext = attachmentFileExtension(type, fileName);
+  const id = base || "document";
+  return `${id}.${ext}`;
+}
+
+/** Images → image; PDFs, Office, archives, and everything else → raw. */
 export function attachmentResourceType(type, name) {
-  if (type?.startsWith("image/")) return "image";
-  if (/\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(name || "")) return "image";
-  if (type === "application/pdf" || /\.pdf$/i.test(name || "")) return "raw";
+  const mime = String(type || "").toLowerCase();
+  const fileName = String(name || "");
+
+  if (mime === "application/pdf" || /\.pdf$/i.test(fileName)) return "raw";
+  if (IMAGE_MIME.has(mime) && IMAGE_EXT.test(fileName)) return "image";
+  if (!mime && IMAGE_EXT.test(fileName)) return "image";
   return "raw";
+}
+
+/** Rebuild a stable Cloudinary CDN URL when resource type or path was wrong. */
+export function buildAttachmentCdnUrl(cloudName, attachment, storageFolder) {
+  const resource = attachment.resourceType || attachmentResourceType(attachment.type, attachment.name);
+  const publicId = `${storageFolder}/${attachmentPublicId(attachment.name, attachment.type)}`;
+  return `https://res.cloudinary.com/${cloudName}/${resource}/upload/${encodeURI(publicId)}`;
 }

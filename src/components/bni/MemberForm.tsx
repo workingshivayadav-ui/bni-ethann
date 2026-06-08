@@ -681,7 +681,7 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
             ref={attachRef}
             type="file"
             multiple
-            accept="image/*,.pdf,.svg,.doc,.docx,.ppt,.pptx"
+            accept="*/*"
             onChange={onAttach}
             className="hidden"
           />

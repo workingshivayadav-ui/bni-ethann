@@ -49,25 +49,36 @@ function memberFolderSlug(firstName: string, lastName: string) {
   return slug || "member";
 }
 
-function attachmentPublicId(fileName: string) {
-  const safe = String(fileName || "document")
-    .trim()
-    .replace(/[^a-zA-Z0-9._-]/g, "_")
-    .replace(/_+/g, "_")
-    .slice(0, 100);
-  return safe || "document";
+function attachmentFileExtension(type: string, name: string) {
+  const fromName = name.match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase();
+  if (fromName) return fromName;
+  if (type === "application/pdf") return "pdf";
+  return "bin";
 }
 
-function isPdfDocument(type: string, name?: string) {
-  return type === "application/pdf" || /\.pdf$/i.test(name || "");
+function attachmentPublicId(fileName: string, type: string) {
+  const base = String(fileName || "document")
+    .trim()
+    .replace(/\.[^.]+$/, "")
+    .replace(/[^a-zA-Z0-9._-]/g, "_")
+    .replace(/_+/g, "_")
+    .slice(0, 90);
+  const ext = attachmentFileExtension(type, fileName);
+  return `${base || "document"}.${ext}`;
+}
+
+function attachmentResourceType(type: string, name: string) {
+  if (type === "application/pdf" || /\.pdf$/i.test(name)) return "raw";
+  if (isImageDocument(type, name)) return "image";
+  return "raw";
 }
 
 function buildCloudinaryUrl(
   storageFolder: string,
   attachment: { name: string; type: string },
 ) {
-  const publicId = `${storageFolder}/${attachmentPublicId(attachment.name)}`;
-  const resource = isImageDocument(attachment.type, attachment.name) ? "image" : "raw";
+  const publicId = `${storageFolder}/${attachmentPublicId(attachment.name, attachment.type)}`;
+  const resource = attachmentResourceType(attachment.type, attachment.name);
   return `https://res.cloudinary.com/${CLOUDINARY_CLOUD}/${resource}/upload/${encodeURI(publicId)}`;
 }
 

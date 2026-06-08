@@ -16,6 +16,13 @@ export function isPdfAttachment(type, name) {
   return type === "application/pdf" || /\.pdf$/i.test(name || "");
 }
 
+export function isRawAttachment(type, name) {
+  if (isPdfAttachment(type, name)) return true;
+  if (type?.startsWith("image/")) return false;
+  if (/\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i.test(name || "")) return false;
+  return true;
+}
+
 /** Authenticated Cloudinary URL that works when public PDF delivery is restricted. */
 export function getAuthenticatedDownloadUrl(storedUrl, { type, name } = {}) {
   if (!storedUrl?.includes("res.cloudinary.com")) return storedUrl;
@@ -23,7 +30,7 @@ export function getAuthenticatedDownloadUrl(storedUrl, { type, name } = {}) {
   const parsed = parseCloudinaryUrl(storedUrl);
   if (!parsed) return storedUrl;
 
-  if (isPdfAttachment(type, name)) {
+  if (isRawAttachment(type, name)) {
     const resourceType =
       parsed.resource_type === "image" ? "raw" : parsed.resource_type;
     return cloudinary.url(parsed.public_id, {

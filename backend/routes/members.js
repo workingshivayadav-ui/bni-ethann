@@ -5,11 +5,13 @@ import uploadOnCloudinary, { isCloudinaryConfigured } from "../config/cloudinary
 import {
   attachmentPublicId,
   attachmentResourceType,
+  buildAttachmentCdnUrl,
   buildMemberMongoDocument,
   memberAttachmentsFieldKey,
   memberStorageFolder,
   readMemberAttachments,
 } from "../lib/memberFolder.js";
+import { parseCloudinaryUrl } from "../lib/cloudinaryUrls.js";
 import {
   getAuthenticatedDownloadUrl,
   isPdfAttachment,
@@ -33,19 +35,22 @@ const estimateBytesFromDataUrl = (dataUrl) => {
 
 /** Stable CDN URL stored in MongoDB — do not replace with expiring signed URLs. */
 const resolveAttachmentUrl = (doc, attachment) => {
+  const folder =
+    doc.storageFolder || memberStorageFolder(doc.firstName, doc.lastName);
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME || "dk78j6zxp";
+  const expectedResource = attachmentResourceType(attachment.type, attachment.name);
+
   if (attachment.url?.includes("res.cloudinary.com")) {
+    const parsed = parseCloudinaryUrl(attachment.url);
+    if (parsed && parsed.resource_type !== expectedResource && expectedResource === "raw") {
+      return buildAttachmentCdnUrl(cloudName, { ...attachment, resourceType: "raw" }, folder);
+    }
     return attachment.url;
   }
 
-  const folder =
-    doc.storageFolder || memberStorageFolder(doc.firstName, doc.lastName);
   if (!folder || !attachment.name) return attachment.url || null;
 
-  const cloudName = process.env.CLOUDINARY_CLOUD_NAME || "dk78j6zxp";
-  const publicId = `${folder}/${attachmentPublicId(attachment.name)}`;
-  const resource = attachmentResourceType(attachment.type, attachment.name);
-
-  return `https://res.cloudinary.com/${cloudName}/${resource}/upload/${publicId}`;
+  return buildAttachmentCdnUrl(cloudName, attachment, folder);
 };
 
 /** API + Mongo shape: documents live under `{firstName}_{lastName}_attachments`. */
@@ -244,9 +249,10 @@ router.post("/", async (req, res) => {
 
     for (const file of attachments) {
       const resourceType = attachmentResourceType(file.type, file.name);
+      const publicId = attachmentPublicId(file.name, file.type);
       const url = await uploadOnCloudinary(file.dataUrl, {
         folder: storageFolder,
-        public_id: attachmentPublicId(file.name),
+        public_id: publicId,
         resource_type: resourceType,
       });
 
@@ -261,9 +267,10 @@ router.post("/", async (req, res) => {
 
       uploadedAttachments.push({
         name: file.name,
-        type: file.type,
+        type: file.type || "application/octet-stream",
         size: file.size,
         url,
+        resourceType,
       });
     }
 

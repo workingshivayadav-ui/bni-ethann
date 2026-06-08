@@ -40,14 +40,20 @@ export const uploadOnCloudinary = async (fileData, options = {}) => {
   if (!fileData) return null;
 
   try {
+    const resourceType = options.resource_type || "auto";
     const uploadOptions = {
-      resource_type: options.resource_type || "auto",
+      resource_type: resourceType,
       overwrite: options.overwrite ?? true,
       invalidate: true,
+      type: "upload",
       ...(options.folder ? { folder: options.folder } : {}),
       ...(options.public_id ? { public_id: options.public_id } : {}),
-      ...(options.format ? { format: options.format } : {}),
     };
+
+    // `format` only applies to images — passing it on raw uploads breaks PDFs/docs.
+    if (resourceType === "image" && options.format) {
+      uploadOptions.format = options.format;
+    }
 
     let result;
 
