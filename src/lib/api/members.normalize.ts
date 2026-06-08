@@ -22,8 +22,15 @@ function buildCloudinaryUrl(
   attachment: { name: string; type: string },
 ) {
   const publicId = `${storageFolder}/${attachmentPublicId(attachment.name)}`;
-  const resource = attachment.type.startsWith("image/") ? "image" : "auto";
+  const resource =
+    isImageDocument(attachment.type, attachment.name) ? "image" : "auto";
   return `https://res.cloudinary.com/${CLOUDINARY_CLOUD}/${resource}/upload/${publicId}`;
+}
+
+function isImageDocument(type: string, name?: string) {
+  if (type.startsWith("image/")) return true;
+  if (name && /\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(name)) return true;
+  return false;
 }
 
 /** Ensure attachment URLs and storage folder are present for display. */
@@ -37,7 +44,7 @@ export function enrichMember(member: MemberRow): MemberRow {
     attachments: (member.attachments || []).map((attachment) => ({
       ...attachment,
       url:
-        attachment.url ||
+        attachment.url ??
         (attachment.name ? buildCloudinaryUrl(storageFolder, attachment) : null),
     })),
   };

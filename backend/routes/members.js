@@ -1,6 +1,5 @@
 import express from "express";
 import mongoose from "mongoose";
-import { v2 as cloudinary } from "cloudinary";
 import Member from "../models/member.js";
 import uploadOnCloudinary from "../config/cloudinary.js";
 import {
@@ -31,11 +30,14 @@ const resolveAttachmentUrl = (doc, attachment) => {
     doc.storageFolder || memberStorageFolder(doc.firstName, doc.lastName);
   if (!folder || !attachment.name) return null;
 
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME || "dk78j6zxp";
   const publicId = `${folder}/${attachmentPublicId(attachment.name)}`;
-  return cloudinary.url(publicId, {
-    secure: true,
-    resource_type: "auto",
-  });
+  const isImage =
+    attachment.type?.startsWith("image/") ||
+    /\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(attachment.name);
+  const resource = isImage ? "image" : "auto";
+
+  return `https://res.cloudinary.com/${cloudName}/${resource}/upload/${publicId}`;
 };
 
 /** Normalize Mongo/in-memory docs to the shape the frontend expects. */

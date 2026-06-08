@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   CheckCircle2,
   ExternalLink,
@@ -33,7 +34,67 @@ export function isPdfDocument(type: string, name?: string) {
 }
 
 function previewHref(item: DocumentItem) {
-  return item.url || item.dataUrl || null;
+  return item.url ?? item.dataUrl ?? null;
+}
+
+function DocumentPreview({
+  href,
+  name,
+  isImage,
+  isPdf,
+}: {
+  href: string;
+  name: string;
+  isImage: boolean;
+  isPdf: boolean;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  if (isImage && !failed) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block aspect-[16/9] bg-gray-100 border-b border-gray-100"
+      >
+        <img
+          src={href}
+          alt={name}
+          className="w-full h-full object-contain bg-[var(--bni-navy-lt)]/30"
+          onError={() => setFailed(true)}
+        />
+      </a>
+    );
+  }
+
+  if (isPdf) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex aspect-[16/9] items-center justify-center bg-red-50 border-b border-red-100"
+      >
+        <div className="text-center">
+          <FileText className="w-12 h-12 mx-auto text-red-500" />
+          <span className="text-xs font-semibold text-red-700 mt-1 block">PDF document</span>
+        </div>
+      </a>
+    );
+  }
+
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex aspect-[16/9] flex-col items-center justify-center bg-[var(--bni-navy-lt)]/40 border-b border-gray-100 px-4 text-center"
+    >
+      <FileText className="w-12 h-12 text-[var(--bni-navy)]/45" />
+      <span className="text-xs font-semibold text-gray-600 mt-2 break-all">{name}</span>
+    </a>
+  );
 }
 
 export function DocumentGallery({
@@ -69,31 +130,8 @@ export function DocumentGallery({
             key={`${item.name}-${i}`}
             className="rounded-xl border border-emerald-200/90 bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow"
           >
-            {isImage && href ? (
-              <a
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block aspect-[16/9] bg-gray-100 border-b border-gray-100"
-              >
-                <img
-                  src={href}
-                  alt={item.name}
-                  className="w-full h-full object-contain bg-[var(--bni-navy-lt)]/30"
-                />
-              </a>
-            ) : isPdf && href ? (
-              <a
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex aspect-[16/9] items-center justify-center bg-red-50 border-b border-red-100"
-              >
-                <div className="text-center">
-                  <FileText className="w-12 h-12 mx-auto text-red-500" />
-                  <span className="text-xs font-semibold text-red-700 mt-1 block">PDF document</span>
-                </div>
-              </a>
+            {href ? (
+              <DocumentPreview href={href} name={item.name} isImage={isImage} isPdf={isPdf} />
             ) : (
               <div className="flex aspect-[16/9] items-center justify-center bg-[var(--bni-navy-lt)]/40 border-b border-gray-100">
                 <FileText className="w-12 h-12 text-[var(--bni-navy)]/45" />

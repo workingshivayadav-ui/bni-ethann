@@ -7,6 +7,7 @@ import { Hero } from "@/components/bni/Hero";
 import { Footer } from "@/components/bni/Footer";
 import { MemberForm } from "@/components/bni/MemberForm";
 import { RosterPanel, membersQueryOptions } from "@/components/bni/RosterPanel";
+import { useQueryClient } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -45,7 +46,7 @@ function HomePage() {
       <Hero />
       <main className="flex-1 grid md:grid-cols-[1.4fr_1fr] max-w-7xl w-full mx-auto">
         <div className="p-6 md:p-8">
-          <MemberForm onSuccess={() => undefined} />
+          <MemberFormWithRefresh />
         </div>
         <Suspense fallback={<div className="p-7 text-sm text-gray-400">Loading roster…</div>}>
           <RosterPanel />
@@ -53,6 +54,17 @@ function HomePage() {
       </main>
       <Footer />
     </div>
+  );
+}
+
+function MemberFormWithRefresh() {
+  const queryClient = useQueryClient();
+  return (
+    <MemberForm
+      onSuccess={() => {
+        queryClient.invalidateQueries({ queryKey: ["members"] });
+      }}
+    />
   );
 }
 

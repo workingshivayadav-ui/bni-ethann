@@ -26,6 +26,7 @@ import { DocumentGallery } from "@/components/bni/DocumentGallery";
 
 export const membersQueryOptions = queryOptions({
   queryKey: ["members"],
+  staleTime: 0,
   queryFn: async (): Promise<MembersResponse> => {
     const res = await apiFetch("/api/members");
     if (!res.ok) throw new Error("Failed to load members");
