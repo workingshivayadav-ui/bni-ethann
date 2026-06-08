@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
   CheckCircle2,
   ExternalLink,
@@ -76,19 +76,6 @@ function PreviewOverlay({
   const deliveryHref = href ? documentDeliveryUrl(href, meta) : null;
 
   useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-    };
-  }, [open, onClose]);
-
-  useEffect(() => {
     if (!open || !href) {
       setSrc(null);
       setError(false);
@@ -141,88 +128,97 @@ function PreviewOverlay({
     };
   }, [open, href, isPdf, deliveryHref]);
 
-  if (!open || typeof document === "undefined") return null;
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/75 p-3 sm:p-6"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Preview ${name}`}
-    >
-      <div
-        className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-100 shrink-0">
-          <p className="text-sm font-semibold text-gray-900 truncate">{name}</p>
-          <div className="flex items-center gap-2 shrink-0">
-            {href && deliveryHref && (
-              <button
-                type="button"
-                onClick={() => openDocumentInNewTab(href, meta)}
-                className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--bni-navy)] hover:text-[var(--bni-red)]"
-              >
-                <ExternalLink className="w-3.5 h-3.5" /> New tab
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-1.5 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100"
-              aria-label="Close preview"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
-        <div className="flex-1 min-h-0 bg-gray-50 flex items-center justify-center overflow-hidden">
-          {loading && <p className="text-sm text-gray-500">Loading preview…</p>}
-          {error && (
-            <div className="text-center px-6">
-              <p className="text-sm text-[var(--bni-red)]">Could not load preview.</p>
-              {href && (
+  return (
+    <DialogPrimitive.Root open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[300] bg-black/75 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Content
+          className="fixed left-1/2 top-1/2 z-[301] flex w-[95vw] max-w-4xl max-h-[92vh] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border bg-white shadow-2xl outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+        >
+          {/* Header — always above iframe */}
+          <div className="relative z-20 flex shrink-0 items-center justify-between gap-3 border-b border-gray-100 bg-white px-4 py-3">
+            <DialogPrimitive.Title className="truncate text-sm font-semibold text-gray-900 pr-2">
+              {name}
+            </DialogPrimitive.Title>
+            <div className="flex shrink-0 items-center gap-2">
+              {href && deliveryHref && (
                 <button
                   type="button"
-                  onClick={() => openDocumentInNewTab(href, meta)}
-                  className="inline-flex items-center gap-1 mt-3 text-sm font-semibold text-[var(--bni-navy)] hover:underline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openDocumentInNewTab(href, meta);
+                  }}
+                  className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-[var(--bni-navy)]/20 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-[var(--bni-navy)] hover:bg-[var(--bni-navy-lt)]"
                 >
-                  <ExternalLink className="w-4 h-4" /> Open in new tab
+                  <ExternalLink className="w-3.5 h-3.5" /> New tab
                 </button>
               )}
-            </div>
-          )}
-          {!loading && !error && src && isImage && (
-            <div className="w-full h-full flex items-center justify-center p-4 overflow-auto scrollbar-hide">
-              <img src={src} alt={name} className="max-h-[78vh] max-w-full object-contain" />
-            </div>
-          )}
-          {!loading && !error && src && isPdf && (
-            <iframe
-              src={src}
-              title={name}
-              className="w-full h-[78vh] border-0 bg-white"
-            />
-          )}
-          {!loading && !error && src && !isImage && !isPdf && (
-            <div className="text-center p-8">
-              <FileText className="w-12 h-12 mx-auto text-gray-400" />
-              <p className="text-sm text-gray-600 mt-2">Preview not available for this file type.</p>
-              <button
+              <DialogPrimitive.Close
                 type="button"
-                onClick={() => openDocumentInNewTab(href!, meta)}
-                className="inline-flex mt-3 text-sm font-semibold text-[var(--bni-navy)] hover:underline"
+                className="cursor-pointer rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+                aria-label="Close preview"
               >
-                Download / open file
-              </button>
+                <X className="w-4 h-4" />
+              </DialogPrimitive.Close>
             </div>
-          )}
-        </div>
-      </div>
-    </div>,
-    document.body,
+          </div>
+
+          {/* Body */}
+          <div className="relative z-0 flex min-h-[50vh] flex-1 flex-col bg-gray-50">
+            {loading && (
+              <div className="flex flex-1 items-center justify-center">
+                <p className="text-sm text-gray-500">Loading preview…</p>
+              </div>
+            )}
+            {error && (
+              <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+                <p className="text-sm text-[var(--bni-red)]">Could not load preview.</p>
+                {href && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openDocumentInNewTab(href, meta);
+                    }}
+                    className="mt-3 inline-flex cursor-pointer items-center gap-1 text-sm font-semibold text-[var(--bni-navy)] hover:underline"
+                  >
+                    <ExternalLink className="w-4 h-4" /> Open in new tab
+                  </button>
+                )}
+              </div>
+            )}
+            {!loading && !error && src && isImage && (
+              <div className="flex flex-1 items-center justify-center overflow-auto p-4 scrollbar-hide">
+                <img src={src} alt={name} className="max-h-[70vh] max-w-full object-contain" />
+              </div>
+            )}
+            {!loading && !error && src && isPdf && (
+              <iframe
+                src={src}
+                title={name}
+                className="h-[70vh] w-full flex-1 border-0 bg-white"
+              />
+            )}
+            {!loading && !error && src && !isImage && !isPdf && (
+              <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
+                <FileText className="mx-auto h-12 w-12 text-gray-400" />
+                <p className="mt-2 text-sm text-gray-600">Preview not available for this file type.</p>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openDocumentInNewTab(href!, meta);
+                  }}
+                  className="mt-3 cursor-pointer text-sm font-semibold text-[var(--bni-navy)] hover:underline"
+                >
+                  Download / open file
+                </button>
+              </div>
+            )}
+          </div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
 

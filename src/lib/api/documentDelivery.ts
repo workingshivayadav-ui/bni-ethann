@@ -21,11 +21,9 @@ export function openDocumentInNewTab(
   meta: { name: string; type: string },
 ) {
   const target = documentDeliveryUrl(href, meta);
-  const a = document.createElement("a");
-  a.href = target;
-  a.target = "_blank";
-  a.rel = "noopener noreferrer";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+  const opened = window.open(target, "_blank", "noopener,noreferrer");
+  if (!opened) {
+    // Popup blocked — fall back to same-tab navigation
+    window.location.assign(target);
+  }
 }
