@@ -5,6 +5,7 @@ import uploadOnCloudinary, { isCloudinaryConfigured } from "../config/cloudinary
 import {
   attachmentPublicId,
   attachmentResourceType,
+  buildMemberMongoDocument,
   memberAttachmentsFieldKey,
   memberStorageFolder,
   readMemberAttachments,
@@ -267,15 +268,14 @@ router.post("/", async (req, res) => {
       data.firstName,
       data.lastName,
     );
+    const { photoDataUrl: _photo, attachments: _attachments, ...memberFields } = data;
 
     // Fallback if MongoDB not connected
     if (mongoose.connection.readyState !== 1) {
-      const { photoDataUrl: _photo, attachments: _attachments, ...fields } = data;
-
       const member = formatMember({
         id: makeId(),
         createdAt: new Date().toISOString(),
-        ...fields,
+        ...memberFields,
         photoUrl,
         storageFolder,
         [attachmentsField]: uploadedAttachments,
@@ -289,30 +289,24 @@ router.post("/", async (req, res) => {
       });
     }
 
-    const member = await Member.create({
-      firstName: data.firstName,
-      lastName: data.lastName,
-      profession: data.profession,
-      tagline: data.tagline,
-      company: data.company,
-      website: data.website,
-      services: data.services || [],
-      referral: data.referral,
-      serviceArea: data.serviceArea,
-      mobile: data.mobile,
-      email: data.email,
-      address: data.address,
-      whatsapp: data.whatsapp,
-      linkedin: data.linkedin,
-      notes: data.notes,
+    const mongoDoc = buildMemberMongoDocument(memberFields, {
       photoUrl,
       storageFolder,
-      [attachmentsField]: uploadedAttachments,
+      uploadedAttachments,
     });
+
+    // Insert directly so Mongoose cannot re-add legacy `attachments` from a cached schema.
+    const { insertedId } = await Member.collection.insertOne(mongoDoc);
+    await Member.collection.updateOne(
+      { _id: insertedId },
+      { $unset: { attachments: "" } },
+    );
+
+    const saved = await Member.findById(insertedId).lean();
 
     return res.status(201).json({
       success: true,
-      member: formatMember(member.toObject()),
+      member: formatMember(saved),
     });
   } catch (error) {
     console.error("Create Member Error:", error);

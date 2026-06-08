@@ -24,7 +24,48 @@ export function readMemberAttachments(doc) {
 
   if (Array.isArray(doc.attachments)) return doc.attachments;
 
+  for (const field of Object.keys(doc)) {
+    if (field.endsWith("_attachments") && Array.isArray(doc[field])) {
+      return doc[field];
+    }
+  }
+
   return [];
+}
+
+/** Build MongoDB document — never includes legacy `attachments` key. */
+export function buildMemberMongoDocument(
+  fields,
+  { photoUrl, storageFolder, uploadedAttachments },
+) {
+  const attachmentsField = memberAttachmentsFieldKey(
+    fields.firstName,
+    fields.lastName,
+  );
+  const now = new Date();
+
+  return {
+    firstName: fields.firstName,
+    lastName: fields.lastName,
+    profession: fields.profession,
+    tagline: fields.tagline,
+    company: fields.company,
+    website: fields.website,
+    services: fields.services || [],
+    referral: fields.referral,
+    serviceArea: fields.serviceArea,
+    mobile: fields.mobile,
+    email: fields.email,
+    address: fields.address,
+    whatsapp: fields.whatsapp,
+    linkedin: fields.linkedin,
+    notes: fields.notes,
+    photoUrl,
+    storageFolder,
+    [attachmentsField]: uploadedAttachments,
+    createdAt: now,
+    updatedAt: now,
+  };
 }
 
 /** Cloudinary folder slug: bni-ethan/john-doe */
