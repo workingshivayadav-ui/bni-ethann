@@ -1,8 +1,6 @@
-import { apiUrl } from "@/lib/api/client";
-
 export type DocumentMeta = { name: string; type: string };
 
-/** Proxy URL for viewing (inline) or downloading (attachment). */
+/** Same-origin proxy so PDFs open reliably in new tabs and iframes. */
 export function documentDeliveryUrl(
   href: string,
   meta: DocumentMeta,
@@ -17,20 +15,55 @@ export function documentDeliveryUrl(
     type: meta.type,
     disposition,
   });
-  return apiUrl(`/api/members/files/delivery?${params}`);
+  return `/api/members/files/delivery?${params}`;
 }
 
-/** Open document in a new browser tab for viewing (does not leave current page). */
-export function openDocumentInNewTab(href: string, meta: DocumentMeta) {
+async function loadDocumentBlob(href: string, meta: DocumentMeta): Promise<Blob> {
+  if (href.startsWith("blob:") || href.startsWith("data:")) {
+    const res = await fetch(href);
+    if (!res.ok) throw new Error("Could not load file");
+    return res.blob();
+  }
+
   const target = documentDeliveryUrl(href, meta, "inline");
-  const link = document.createElement("a");
-  link.href = target;
-  link.target = "_blank";
-  link.rel = "noopener noreferrer";
-  link.style.display = "none";
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
+  const res = await fetch(target);
+  if (!res.ok) throw new Error("Could not load file");
+  return res.blob();
+}
+
+function showLoadingTab(tab: Window, title: string) {
+  tab.document.title = title;
+  tab.document.body.style.margin = "0";
+  tab.document.body.innerHTML =
+    '<div style="font-family:system-ui,sans-serif;padding:2rem;color:#555">Loading document…</div>';
+}
+
+/** Open document in a new browser tab for viewing (current page stays open). */
+export async function openDocumentInNewTab(href: string, meta: DocumentMeta): Promise<void> {
+  // Must open synchronously inside the click handler or the browser blocks the popup.
+  const tab = window.open("about:blank", "_blank");
+  if (!tab) {
+    throw new Error("Popup blocked");
+  }
+
+  tab.opener = null;
+  showLoadingTab(tab, meta.name);
+
+  try {
+    const blob = await loadDocumentBlob(href, meta);
+    const blobUrl = URL.createObjectURL(blob);
+    tab.location.replace(blobUrl);
+    tab.addEventListener(
+      "load",
+      () => {
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 120_000);
+      },
+      { once: true },
+    );
+  } catch (error) {
+    tab.close();
+    throw error;
+  }
 }
 
 /** Save document to the user's device. */

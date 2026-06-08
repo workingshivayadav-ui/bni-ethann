@@ -22,8 +22,11 @@ export default defineConfig({
           target: API_TARGET,
           changeOrigin: true,
           bypass(req) {
-            // TanStack serves CSV export; Express handles the rest.
-            if (req.url?.startsWith("/api/members/export")) {
+            // TanStack serves CSV export and file delivery proxy; Express handles the rest.
+            if (
+              req.url?.startsWith("/api/members/export") ||
+              req.url?.startsWith("/api/members/files/delivery")
+            ) {
               return req.url;
             }
           },

@@ -166,7 +166,9 @@ function PreviewOverlay({
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      openDocumentInNewTab(href, meta);
+                      void openDocumentInNewTab(href, meta).catch(() => {
+                        toast.error("Could not open in new tab. Allow popups for this site.");
+                      });
                     }}
                     className="bni-btn-outline"
                   >
@@ -199,7 +201,9 @@ function PreviewOverlay({
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      openDocumentInNewTab(href, meta);
+                      void openDocumentInNewTab(href, meta).catch(() => {
+                        toast.error("Could not open in new tab. Allow popups for this site.");
+                      });
                     }}
                     className="bni-btn-link mt-3 text-[var(--bni-navy)]"
                   >
@@ -228,11 +232,13 @@ function PreviewOverlay({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    openDocumentInNewTab(href!, meta);
+                    void openDocumentInNewTab(href!, meta).catch(() => {
+                      toast.error("Could not open in new tab. Allow popups for this site.");
+                    });
                   }}
                   className="bni-btn-link mt-3 text-[var(--bni-navy)]"
                 >
-                  Download / open file
+                  Open in new tab
                 </button>
               </div>
             )}
@@ -381,12 +387,14 @@ export function DocumentGallery({
                     </button>
                     <button
                       type="button"
-                      onClick={() =>
-                        openDocumentInNewTab(href, {
+                      onClick={() => {
+                        void openDocumentInNewTab(href, {
                           name: item.name,
                           type: item.type,
-                        })
-                      }
+                        }).catch(() => {
+                          toast.error("Could not open in new tab. Allow popups for this site.");
+                        });
+                      }}
                       className="bni-btn-outline"
                       title="Open in new tab"
                     >
