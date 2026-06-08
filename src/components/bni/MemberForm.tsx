@@ -325,10 +325,7 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
         )}
 
         <div className="text-center">
-          <button
-            onClick={reset}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--bni-red)] hover:underline"
-          >
+          <button type="button" onClick={reset} className="bni-btn-link">
             Submit another profile
           </button>
         </div>
@@ -337,7 +334,7 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 p-6 md:p-8 shadow-sm">
+    <div className="bni-card p-6 md:p-8">
       {/* Progress */}
       <div className="mb-6">
         <div className="flex items-center justify-between">
@@ -387,13 +384,14 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
               <button
                 type="button"
                 onClick={() => photoRef.current?.click()}
-                className={`w-24 h-24 rounded-full border-2 border-dashed flex items-center justify-center overflow-hidden bg-[var(--bni-navy-lt)] hover:border-[var(--bni-red)] transition ${
+                className={`bni-photo-circle ${
                   photoError
-                    ? "border-[var(--bni-red)]"
+                    ? "bni-photo-circle--error"
                     : photoDataUrl
-                      ? "border-emerald-400 ring-2 ring-emerald-100"
-                      : "border-gray-200"
+                      ? "bni-photo-circle--filled"
+                      : ""
                 }`}
+                aria-label={photoDataUrl ? "Change profile photo" : "Upload profile photo"}
               >
                 {photoDataUrl ? (
                   <img src={photoDataUrl} className="w-full h-full object-cover" alt="" />
@@ -411,7 +409,7 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
               <button
                 type="button"
                 onClick={() => photoRef.current?.click()}
-                className="inline-flex items-center gap-2 border border-gray-200 rounded-md px-3 py-2 text-sm font-medium hover:bg-gray-50"
+                className="bni-btn-secondary"
               >
                 <Upload className="w-4 h-4" /> {photoDataUrl ? "Change photo" : "Choose photo"}
               </button>
@@ -529,7 +527,8 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
                   <button
                     type="button"
                     onClick={() => update("services", form.services.filter((x) => x !== s))}
-                    className="text-[var(--bni-navy)]/60 hover:text-[var(--bni-red)]"
+                    className="bni-btn-icon p-0.5 text-[var(--bni-navy)]/60"
+                    aria-label={`Remove ${s}`}
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -639,12 +638,12 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
               type="button"
               onClick={() => !readingFiles && attachRef.current?.click()}
               disabled={readingFiles}
-              className={`w-full border-2 border-dashed rounded-lg p-5 text-center transition disabled:opacity-60 ${
+              className={`bni-upload-zone disabled:opacity-60 ${
                 attachError
-                  ? "border-[var(--bni-red)] bg-red-50/30"
+                  ? "bni-upload-zone--error"
                   : attachments.length > 0
-                    ? "border-emerald-300 bg-emerald-50/40 hover:border-emerald-400 hover:bg-emerald-50/70"
-                    : "border-gray-200 hover:border-[var(--bni-red)] hover:bg-[var(--bni-red-lt)]/40"
+                    ? "bni-upload-zone--ready"
+                    : ""
               }`}
             >
               {readingFiles ? (
@@ -780,18 +779,14 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
           )}
 
           <div className="flex items-center justify-between pt-3">
-            <button
-              type="button"
-              onClick={pv}
-              className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900"
-            >
+            <button type="button" onClick={pv} className="bni-btn-ghost">
               <ArrowLeft className="w-4 h-4" /> Back
             </button>
             <button
               type="button"
               onClick={submit}
               disabled={mutation.isPending}
-              className="inline-flex items-center gap-2 bg-[var(--bni-red)] hover:bg-[var(--bni-red-dk)] text-white font-semibold text-sm rounded-md px-5 py-2.5 disabled:opacity-60"
+              className="bni-btn-primary disabled:opacity-60"
             >
               {mutation.isPending ? "Submitting…" : "Submit profile"}
             </button>
@@ -817,9 +812,7 @@ function Step({
     <div className="space-y-5">
       <div>
         <div className="flex items-center gap-2">
-          <span className="bg-[var(--bni-red)] text-white text-xs font-bold rounded-md px-2 py-0.5">
-            Step {badge}
-          </span>
+          <span className="bni-step-pill">Step {badge}</span>
           <h2 className="font-display font-bold text-2xl text-gray-900">{title}</h2>
         </div>
         <p className="text-sm text-gray-600 mt-1">{desc}</p>
@@ -858,9 +851,7 @@ function Field({
 }
 
 function inputCls(error?: string) {
-  return `w-full border rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:border-[var(--bni-red)] transition ${
-    error ? "border-[var(--bni-red)]" : "border-gray-200"
-  }`;
+  return `bni-input ${error ? "bni-input--error" : ""}`;
 }
 
 function Counter({ v, max }: { v: number; max: number }) {
@@ -895,21 +886,13 @@ function Nav({
   return (
     <div className="flex items-center justify-between pt-3">
       {onBack ? (
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900"
-        >
+        <button type="button" onClick={onBack} className="bni-btn-ghost">
           <ArrowLeft className="w-4 h-4" /> Back
         </button>
       ) : (
         <span />
       )}
-      <button
-        type="button"
-        onClick={onNext}
-        className="inline-flex items-center gap-2 bg-[var(--bni-red)] hover:bg-[var(--bni-red-dk)] text-white font-semibold text-sm rounded-md px-5 py-2.5"
-      >
+      <button type="button" onClick={onNext} className="bni-btn-primary">
         {nextLabel} <ArrowRight className="w-4 h-4" />
       </button>
     </div>

@@ -66,21 +66,16 @@ export function RosterPanel() {
 
   return (
     <>
-      <aside className="bg-[var(--off-white)] p-6 md:p-7 md:border-l border-gray-100">
+      <aside className="bni-roster-panel p-6 md:p-7">
         <div className="flex items-center justify-between flex-wrap gap-2 mb-5">
           <h2 className="font-display font-black text-2xl text-gray-900">
             Submitted Members
           </h2>
-          <span className="bg-[var(--bni-red)] text-white text-xs font-bold px-3 py-1 rounded-full">
-            {members.length}
-          </span>
+          <span className="bni-badge bni-badge--count">{members.length}</span>
         </div>
 
-        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-[var(--bni-red)] to-[var(--bni-navy)] transition-all"
-            style={{ width: `${pct}%` }}
-          />
+        <div className="bni-progress-track">
+          <div className="bni-progress-fill" style={{ width: `${pct}%` }} />
         </div>
         <div className="text-[11px] text-gray-400 text-right mt-1 mb-4 font-medium">
           {members.length} of {ROSTER_TARGET} target
@@ -93,12 +88,14 @@ export function RosterPanel() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search members…"
-            className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--bni-red)]/20 focus:border-[var(--bni-red)] transition"
+            className="bni-input pl-9 pr-9 py-2.5"
           />
           {query && (
             <button
+              type="button"
               onClick={() => setQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              className="bni-btn-icon absolute right-2 top-1/2 -translate-y-1/2"
+              aria-label="Clear search"
             >
               <X className="w-4 h-4" />
             </button>
@@ -143,7 +140,7 @@ function MemberCard({
 }) {
   const initials = `${member.firstName[0] ?? ""}${member.lastName[0] ?? ""}`.toUpperCase();
   return (
-    <div className="bg-white border border-gray-100 rounded-xl overflow-hidden hover:shadow-md transition">
+    <div className="bni-member-card">
       <div className="h-1 bg-[var(--bni-red)]" />
       <div className="p-4 flex items-start gap-3">
         <div className="w-12 h-12 rounded-full border-2 border-gray-100 overflow-hidden bg-[var(--bni-navy-lt)] flex items-center justify-center font-display font-black text-base text-[var(--bni-navy)] shrink-0">
@@ -204,9 +201,9 @@ function MemberCard({
           <button
             type="button"
             onClick={onView}
-            className="inline-flex items-center gap-1 text-[10px] font-semibold text-white bg-[var(--bni-navy)] hover:bg-[var(--bni-red)] rounded-full px-2.5 py-1 transition"
+            className="bni-btn-navy px-3 py-1.5 text-[10px]"
           >
-            <Eye className="w-3 h-3" />
+            <Eye className="w-3.5 h-3.5" />
             View
           </button>
         </div>

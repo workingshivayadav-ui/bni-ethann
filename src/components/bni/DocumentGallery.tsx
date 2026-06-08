@@ -136,7 +136,7 @@ function PreviewOverlay({
           className="fixed left-1/2 top-1/2 z-[301] flex w-[95vw] max-w-4xl max-h-[92vh] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border bg-white shadow-2xl outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
         >
           {/* Header — always above iframe */}
-          <div className="relative z-20 flex shrink-0 items-center justify-between gap-3 border-b border-gray-100 bg-white px-4 py-3">
+          <div className="bni-preview-header relative z-20 flex shrink-0 items-center justify-between gap-3">
             <DialogPrimitive.Title className="truncate text-sm font-semibold text-gray-900 pr-2">
               {name}
             </DialogPrimitive.Title>
@@ -145,17 +145,18 @@ function PreviewOverlay({
                 <button
                   type="button"
                   onClick={(e) => {
+                    e.preventDefault();
                     e.stopPropagation();
                     openDocumentInNewTab(href, meta);
                   }}
-                  className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-[var(--bni-navy)]/20 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-[var(--bni-navy)] hover:bg-[var(--bni-navy-lt)]"
+                  className="bni-btn-outline"
                 >
                   <ExternalLink className="w-3.5 h-3.5" /> New tab
                 </button>
               )}
               <DialogPrimitive.Close
                 type="button"
-                className="cursor-pointer rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+                className="bni-btn-icon"
                 aria-label="Close preview"
               >
                 <X className="w-4 h-4" />
@@ -180,7 +181,7 @@ function PreviewOverlay({
                       e.stopPropagation();
                       openDocumentInNewTab(href, meta);
                     }}
-                    className="mt-3 inline-flex cursor-pointer items-center gap-1 text-sm font-semibold text-[var(--bni-navy)] hover:underline"
+                    className="bni-btn-link mt-3 text-[var(--bni-navy)]"
                   >
                     <ExternalLink className="w-4 h-4" /> Open in new tab
                   </button>
@@ -209,7 +210,7 @@ function PreviewOverlay({
                     e.stopPropagation();
                     openDocumentInNewTab(href!, meta);
                   }}
-                  className="mt-3 cursor-pointer text-sm font-semibold text-[var(--bni-navy)] hover:underline"
+                  className="bni-btn-link mt-3 text-[var(--bni-navy)]"
                 >
                   Download / open file
                 </button>
@@ -298,8 +299,8 @@ export function DocumentGallery({
 
   const rowClass =
     variant === "card"
-      ? "flex items-center gap-2.5 rounded-md border border-gray-100 bg-white px-2.5 py-2"
-      : "flex items-center gap-2.5 rounded-md border border-emerald-200/70 bg-white px-2.5 py-2 shadow-sm";
+      ? "bni-doc-row"
+      : "bni-doc-row";
 
   return (
     <>
@@ -335,7 +336,7 @@ export function DocumentGallery({
                     onClick={() =>
                       handleOpen(href, item.name, item.type, isPdf, isImage)
                     }
-                    className="inline-flex items-center gap-1 text-[10px] font-semibold text-white bg-[var(--bni-navy)] hover:bg-[var(--bni-red)] rounded px-2 py-1 transition-colors"
+                    className="bni-btn-navy"
                   >
                     <ActionIcon className="w-3 h-3" />
                     {actionLabel}
@@ -347,7 +348,7 @@ export function DocumentGallery({
                   <button
                     type="button"
                     onClick={() => onRemove(i)}
-                    className="p-1 text-gray-400 hover:text-[var(--bni-red)]"
+                    className="bni-btn-icon"
                     title="Remove"
                   >
                     <X className="w-3 h-3" />

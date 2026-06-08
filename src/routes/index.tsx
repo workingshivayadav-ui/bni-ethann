@@ -44,11 +44,17 @@ function HomePage() {
       <Toaster richColors position="top-center" />
       <NavWithCount />
       <Hero />
-      <main className="flex-1 grid md:grid-cols-[1.4fr_1fr] max-w-7xl w-full mx-auto">
-        <div className="p-6 md:p-8">
+      <main className="flex-1 grid md:grid-cols-[1.4fr_1fr] max-w-7xl w-full mx-auto gap-0">
+        <div className="p-6 md:p-8 md:pr-6">
           <MemberFormWithRefresh />
         </div>
-        <Suspense fallback={<div className="p-7 text-sm text-gray-400">Loading roster…</div>}>
+        <Suspense
+          fallback={
+            <div className="bni-roster-panel p-7 text-sm text-gray-500 animate-pulse">
+              Loading roster…
+            </div>
+          }
+        >
           <RosterPanel />
         </Suspense>
       </main>
