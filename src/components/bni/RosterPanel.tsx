@@ -1,5 +1,5 @@
 import { useState, useMemo, type ComponentType } from "react";
-import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
+import { queryOptions, useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api/client";
 import type { MemberRow, MembersResponse } from "@/lib/api/members.types";
 import { enrichMembers } from "@/lib/api/members.normalize";
@@ -33,17 +33,49 @@ export const membersQueryOptions = queryOptions({
   staleTime: 0,
   queryFn: async (): Promise<MembersResponse> => {
     const res = await apiFetch("/api/members");
-    if (!res.ok) throw new Error("Failed to load members");
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(
+        (err as { message?: string })?.message || `Failed to load members (${res.status})`,
+      );
+    }
     const data: MembersResponse = await res.json();
-    return { ...data, members: enrichMembers(data.members) };
+    return { ...data, members: enrichMembers(data.members ?? []) };
   },
+  retry: 2,
 });
 
 const ROSTER_TARGET = 24;
 
 export function RosterPanel() {
-  const { data } = useSuspenseQuery(membersQueryOptions);
-  const members = data.members;
+  const { data, isLoading, isError, error, refetch } = useQuery(membersQueryOptions);
+  const members = data?.members ?? [];
+
+  if (isLoading) {
+    return (
+      <aside className="bni-roster-panel p-7 text-sm text-gray-500 animate-pulse">
+        Loading roster…
+      </aside>
+    );
+  }
+
+  if (isError) {
+    return (
+      <aside className="bni-roster-panel p-7 text-center">
+        <p className="text-sm font-semibold text-gray-900">Could not load roster</p>
+        <p className="text-xs text-gray-500 mt-1">
+          {(error as Error)?.message || "Network error"}
+        </p>
+        <button
+          type="button"
+          onClick={() => void refetch()}
+          className="bni-btn-outline mt-3 text-xs"
+        >
+          Try again
+        </button>
+      </aside>
+    );
+  }
 
   const [query, setQuery] = useState("");
   const [viewMember, setViewMember] = useState<MemberRow | null>(null);

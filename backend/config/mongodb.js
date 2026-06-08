@@ -42,10 +42,10 @@ const connectDB = async () => {
     await mongoose.connect(mongoURI, options);
     console.log(`✓ MongoDB connected — database: ${mongoose.connection.db?.databaseName ?? dbName}`);
 
-    const { migrateLegacyAttachmentFields } = await import(
-      "../lib/migrateAttachments.js"
-    );
-    await migrateLegacyAttachmentFields();
+    // Run migration in background — must not block server startup or API reads.
+    import("../lib/migrateAttachments.js")
+      .then(({ migrateLegacyAttachmentFields }) => migrateLegacyAttachmentFields())
+      .catch((err) => console.error("Attachment migration error:", err.message));
   } catch (error) {
     console.warn("⚠ MongoDB Connection Failed - using in-memory fallback:", error.message);
     await mongoose.disconnect().catch(() => {});

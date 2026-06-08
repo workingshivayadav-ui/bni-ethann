@@ -53,6 +53,12 @@ const resolveAttachmentUrl = (doc, attachment) => {
   return buildAttachmentCdnUrl(cloudName, attachment, folder);
 };
 
+function safeMediaUrl(value) {
+  if (typeof value !== "string") return null;
+  if (value.startsWith("https://") || value.startsWith("http://")) return value;
+  return null;
+}
+
 /** API + Mongo shape: documents live under `{firstName}_{lastName}_attachments`. */
 const formatMember = (doc) => {
   const id = doc._id ? String(doc._id) : doc.id;
@@ -87,7 +93,8 @@ const formatMember = (doc) => {
     whatsapp: doc.whatsapp || null,
     linkedin: doc.linkedin || null,
     notes: doc.notes || null,
-    photoDataUrl: doc.photoUrl || doc.photoDataUrl || null,
+    photoDataUrl:
+      safeMediaUrl(doc.photoUrl) || safeMediaUrl(doc.photoDataUrl) || null,
     storageFolder:
       doc.storageFolder || memberStorageFolder(doc.firstName, doc.lastName),
     [attachmentsField]: attachmentList,
@@ -104,16 +111,19 @@ router.get("/", async (req, res) => {
       });
     }
 
-    const members = await Member.find()
+    const members = await mongoose.connection
+      .collection("members")
+      .find({})
       .sort({ createdAt: -1 })
-      .lean();
+      .maxTimeMS(10_000)
+      .toArray();
 
     return res.status(200).json({
       success: true,
       members: members.map(formatMember),
     });
   } catch (error) {
-    console.error(error);
+    console.error("GET /api/members failed:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch members",

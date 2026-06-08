@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useSuspenseQuery } from "@tanstack/react-query";
-import { Suspense } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 import { Navbar } from "@/components/bni/Navbar";
 import { Hero } from "@/components/bni/Hero";
@@ -26,7 +25,13 @@ export const Route = createFileRoute("/")({
       { property: "og:type", content: "website" },
     ],
   }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(membersQueryOptions),
+  loader: async ({ context }) => {
+    try {
+      await context.queryClient.ensureQueryData(membersQueryOptions);
+    } catch {
+      // Roster panel shows its own error; don't block the submission form.
+    }
+  },
   component: HomePage,
   errorComponent: ({ error }) => (
     <div className="min-h-screen flex items-center justify-center p-6 text-center">
@@ -48,15 +53,7 @@ function HomePage() {
         <div className="p-6 md:p-8 md:pr-6">
           <MemberFormWithRefresh />
         </div>
-        <Suspense
-          fallback={
-            <div className="bni-roster-panel p-7 text-sm text-gray-500 animate-pulse">
-              Loading roster…
-            </div>
-          }
-        >
-          <RosterPanel />
-        </Suspense>
+        <RosterPanel />
       </main>
       <Footer />
     </div>
@@ -75,6 +72,6 @@ function MemberFormWithRefresh() {
 }
 
 function NavWithCount() {
-  const { data } = useSuspenseQuery(membersQueryOptions);
-  return <Navbar count={data.members.length} />;
+  const { data } = useQuery(membersQueryOptions);
+  return <Navbar count={data?.members?.length ?? 0} />;
 }

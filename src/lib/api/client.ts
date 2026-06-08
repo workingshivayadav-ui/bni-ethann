@@ -10,6 +10,14 @@ export function apiUrl(path: string): string {
   return base ? `${base}${path}` : path;
 }
 
+const API_TIMEOUT_MS = 25_000;
+
 export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
-  return fetch(apiUrl(path), init);
+  const signal =
+    init?.signal ??
+    (typeof AbortSignal !== "undefined" && "timeout" in AbortSignal
+      ? AbortSignal.timeout(API_TIMEOUT_MS)
+      : undefined);
+
+  return fetch(apiUrl(path), { ...init, signal });
 }

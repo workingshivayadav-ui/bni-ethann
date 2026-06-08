@@ -87,10 +87,6 @@ const MemberSchema = new mongoose.Schema(
 );
 
 // Attachments are stored per member as `{firstName}_{lastName}_attachments` (dynamic key).
-if (mongoose.models.Member) {
-  delete mongoose.models.Member;
-}
-
-const Member = mongoose.model("Member", MemberSchema);
+const Member = mongoose.models.Member || mongoose.model("Member", MemberSchema);
 
 export default Member;

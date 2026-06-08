@@ -15,6 +15,7 @@ async function proxyToBackend(request: Request, method: string): Promise<Respons
     method,
     headers,
     body: method === "GET" || method === "HEAD" ? undefined : await request.text(),
+    signal: AbortSignal.timeout(20_000),
   });
 
   return new Response(await res.text(), {

@@ -6,9 +6,9 @@ export async function migrateLegacyAttachmentFields() {
   if (mongoose.connection.readyState !== 1) return 0;
 
   const collection = mongoose.connection.collection("members");
-  const cursor = collection.find({
-    attachments: { $exists: true, $type: "array" },
-  });
+  const cursor = collection
+    .find({ attachments: { $exists: true, $type: "array" } })
+    .maxTimeMS(30_000);
 
   let migrated = 0;
 
