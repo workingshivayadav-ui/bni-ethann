@@ -2,13 +2,16 @@ import { useEffect, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
   CheckCircle2,
+  Download,
   ExternalLink,
   Eye,
   FileText,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 import {
   documentDeliveryUrl,
+  downloadDocument,
   openDocumentInNewTab,
 } from "@/lib/api/documentDelivery";
 
@@ -140,19 +143,36 @@ function PreviewOverlay({
             <DialogPrimitive.Title className="truncate text-sm font-semibold text-gray-900 pr-2">
               {name}
             </DialogPrimitive.Title>
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex shrink-0 items-center gap-1.5">
               {href && deliveryHref && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    openDocumentInNewTab(href, meta);
-                  }}
-                  className="bni-btn-outline"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" /> New tab
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      try {
+                        await downloadDocument(href, meta);
+                      } catch {
+                        toast.error("Could not download file");
+                      }
+                    }}
+                    className="bni-btn-outline"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Download
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      openDocumentInNewTab(href, meta);
+                    }}
+                    className="bni-btn-outline"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> New tab
+                  </button>
+                </>
               )}
               <DialogPrimitive.Close
                 type="button"
@@ -284,10 +304,8 @@ export function DocumentGallery({
   }
 
   const badgeLabel = status === "uploaded" ? "Uploaded" : "Ready";
-  const actionLabel = status === "uploaded" ? "Open" : "Preview";
-  const ActionIcon = status === "uploaded" ? ExternalLink : Eye;
 
-  function handleOpen(
+  function handleView(
     href: string,
     name: string,
     type: string,
@@ -329,18 +347,53 @@ export function DocumentGallery({
                 </div>
               </div>
 
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="bni-doc-actions flex flex-wrap items-center justify-end gap-1 shrink-0">
                 {href ? (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleOpen(href, item.name, item.type, isPdf, isImage)
-                    }
-                    className="bni-btn-navy"
-                  >
-                    <ActionIcon className="w-3 h-3" />
-                    {actionLabel}
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleView(href, item.name, item.type, isPdf, isImage)
+                      }
+                      className="bni-btn-navy"
+                      title="View in app"
+                    >
+                      <Eye className="w-3 h-3" />
+                      View
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await downloadDocument(href, {
+                            name: item.name,
+                            type: item.type,
+                          });
+                        } catch {
+                          toast.error("Could not download file");
+                        }
+                      }}
+                      className="bni-btn-outline"
+                      title="Download file"
+                    >
+                      <Download className="w-3 h-3" />
+                      <span className="hidden sm:inline">Download</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openDocumentInNewTab(href, {
+                          name: item.name,
+                          type: item.type,
+                        })
+                      }
+                      className="bni-btn-outline"
+                      title="Open in new tab"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      <span className="hidden sm:inline">New tab</span>
+                    </button>
+                  </>
                 ) : (
                   <span className="text-[10px] text-amber-600">Unavailable</span>
                 )}

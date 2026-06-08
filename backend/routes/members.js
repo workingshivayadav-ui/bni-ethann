@@ -350,8 +350,12 @@ router.get("/files/delivery", async (req, res) => {
       upstream.headers.get("content-type") ||
       (isPdfAttachment(type, name) ? "application/pdf" : "application/octet-stream");
 
+    const disposition =
+      req.query.disposition === "attachment" ? "attachment" : "inline";
+    const safeName = name.replace(/"/g, "");
+
     res.setHeader("Content-Type", contentType);
-    res.setHeader("Content-Disposition", `inline; filename="${name.replace(/"/g, "")}"`);
+    res.setHeader("Content-Disposition", `${disposition}; filename="${safeName}"`);
     res.setHeader("Cache-Control", "private, max-age=300");
 
     const buffer = Buffer.from(await upstream.arrayBuffer());

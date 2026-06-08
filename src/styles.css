@@ -300,6 +300,20 @@
     box-shadow: 0 2px 8px rgb(0 0 0 / 0.06);
   }
 
+  .bni-doc-actions .bni-btn-navy,
+  .bni-doc-actions .bni-btn-outline {
+    padding: 0.3125rem 0.5rem;
+    font-size: 0.625rem;
+  }
+
+  @media (min-width: 640px) {
+    .bni-doc-actions .bni-btn-navy,
+    .bni-doc-actions .bni-btn-outline {
+      padding: 0.375rem 0.625rem;
+      font-size: 0.6875rem;
+    }
+  }
+
   .bni-photo-circle {
     display: flex;
     align-items: center;
