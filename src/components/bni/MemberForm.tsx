@@ -257,15 +257,21 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
     setSubmittedMember(null);
   }
 
-  const savedDocs =
-    submittedMember?.attachments?.length
-      ? submittedMember.attachments
-      : attachments.map((a) => ({
-          name: a.name,
-          type: a.type,
-          size: a.size,
-          url: a.dataUrl,
-        }));
+  const savedDocs = submittedMember?.attachments?.length
+    ? submittedMember.attachments.map((a) => ({
+        name: a.name,
+        type: a.type,
+        size: a.size,
+        url: a.url,
+        // Keep local copy from the form so View/Download/New tab work immediately after submit.
+        dataUrl: attachments.find((x) => x.name === a.name)?.dataUrl,
+      }))
+    : attachments.map((a) => ({
+        name: a.name,
+        type: a.type,
+        size: a.size,
+        dataUrl: a.dataUrl,
+      }));
 
   if (submitted) {
     return (

@@ -17,13 +17,20 @@ function attachmentPublicId(fileName: string) {
   return safe || "document";
 }
 
+function isPdfDocument(type: string, name?: string) {
+  return type === "application/pdf" || /\.pdf$/i.test(name || "");
+}
+
 function buildCloudinaryUrl(
   storageFolder: string,
   attachment: { name: string; type: string },
 ) {
   const publicId = `${storageFolder}/${attachmentPublicId(attachment.name)}`;
-  const resource =
-    isImageDocument(attachment.type, attachment.name) ? "image" : "auto";
+  const resource = isImageDocument(attachment.type, attachment.name)
+    ? "image"
+    : isPdfDocument(attachment.type, attachment.name)
+      ? "raw"
+      : "raw";
   return `https://res.cloudinary.com/${CLOUDINARY_CLOUD}/${resource}/upload/${publicId}`;
 }
 

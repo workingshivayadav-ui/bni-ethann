@@ -11,16 +11,15 @@ import {
 import { toast } from "sonner";
 import {
   documentDeliveryUrl,
-  downloadDocument,
-  openDocumentInNewTab,
+  downloadDocumentItem,
+  loadDocumentItemBlob,
+  openDocumentItemInNewTab,
+  resolveDocumentHref,
+  type DocumentSource,
 } from "@/lib/api/documentDelivery";
 
-export type DocumentItem = {
-  name: string;
-  type: string;
+export type DocumentItem = DocumentSource & {
   size: number;
-  dataUrl?: string;
-  url?: string | null;
 };
 
 export function formatFileSize(bytes: number) {
@@ -41,33 +40,16 @@ export function isPdfDocument(type: string, name?: string) {
   return false;
 }
 
-function previewHref(item: DocumentItem) {
-  return item.url ?? item.dataUrl ?? null;
-}
-
-async function toBlobPreviewUrl(href: string): Promise<string> {
-  if (href.startsWith("data:")) {
-    const res = await fetch(href);
-    const blob = await res.blob();
-    return URL.createObjectURL(blob);
-  }
-  return href;
-}
-
 function PreviewOverlay({
   open,
   onClose,
-  href,
-  name,
-  type,
+  item,
   isPdf,
   isImage,
 }: {
   open: boolean;
   onClose: () => void;
-  href: string | null;
-  name: string;
-  type: string;
+  item: DocumentItem | null;
   isPdf: boolean;
   isImage: boolean;
 }) {
@@ -75,11 +57,11 @@ function PreviewOverlay({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
 
-  const meta = { name, type };
-  const deliveryHref = href ? documentDeliveryUrl(href, meta) : null;
+  const href = item ? resolveDocumentHref(item) : null;
+  const hasSource = Boolean(item && (item.dataUrl || item.url));
 
   useEffect(() => {
-    if (!open || !href) {
+    if (!open || !item || !href) {
       setSrc(null);
       setError(false);
       return;
@@ -92,24 +74,12 @@ function PreviewOverlay({
 
     const load = async () => {
       try {
-        if (href.startsWith("data:") || href.startsWith("blob:")) {
-          const url = await toBlobPreviewUrl(href);
-          if (!cancelled) {
-            blobUrl = url.startsWith("blob:") ? url : null;
-            setSrc(url);
-          }
-          return;
-        }
-
-        if (isPdf) {
-          if (!cancelled) setSrc(deliveryHref);
-          return;
-        }
-
-        const res = await fetch(deliveryHref!);
-        if (!res.ok) throw new Error("fetch failed");
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
+        const blob = await loadDocumentItemBlob(item);
+        const typedBlob =
+          isPdf && blob.type !== "application/pdf"
+            ? new Blob([await blob.arrayBuffer()], { type: "application/pdf" })
+            : blob;
+        const url = URL.createObjectURL(typedBlob);
         if (cancelled) {
           URL.revokeObjectURL(url);
           return;
@@ -129,7 +99,7 @@ function PreviewOverlay({
       cancelled = true;
       if (blobUrl) URL.revokeObjectURL(blobUrl);
     };
-  }, [open, href, isPdf, deliveryHref]);
+  }, [open, item, href, isPdf]);
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={(v) => !v && onClose()}>
@@ -138,13 +108,12 @@ function PreviewOverlay({
         <DialogPrimitive.Content
           className="fixed left-1/2 top-1/2 z-[301] flex w-[95vw] max-w-4xl max-h-[92vh] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border bg-white shadow-2xl outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
         >
-          {/* Header — always above iframe */}
           <div className="bni-preview-header relative z-20 flex shrink-0 items-center justify-between gap-3">
             <DialogPrimitive.Title className="truncate text-sm font-semibold text-gray-900 pr-2">
-              {name}
+              {item?.name ?? ""}
             </DialogPrimitive.Title>
             <div className="flex shrink-0 items-center gap-1.5">
-              {href && deliveryHref && (
+              {item && hasSource && (
                 <>
                   <button
                     type="button"
@@ -152,7 +121,7 @@ function PreviewOverlay({
                       e.preventDefault();
                       e.stopPropagation();
                       try {
-                        await downloadDocument(href, meta);
+                        await downloadDocumentItem(item);
                       } catch {
                         toast.error("Could not download file");
                       }
@@ -166,7 +135,7 @@ function PreviewOverlay({
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      void openDocumentInNewTab(href, meta).catch(() => {
+                      void openDocumentItemInNewTab(item).catch(() => {
                         toast.error("Could not open in new tab. Allow popups for this site.");
                       });
                     }}
@@ -186,7 +155,6 @@ function PreviewOverlay({
             </div>
           </div>
 
-          {/* Body */}
           <div className="relative z-0 flex min-h-[50vh] flex-1 flex-col bg-gray-50">
             {loading && (
               <div className="flex flex-1 items-center justify-center">
@@ -196,12 +164,12 @@ function PreviewOverlay({
             {error && (
               <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
                 <p className="text-sm text-[var(--bni-red)]">Could not load preview.</p>
-                {href && (
+                {item && hasSource && (
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      void openDocumentInNewTab(href, meta).catch(() => {
+                      void openDocumentItemInNewTab(item).catch(() => {
                         toast.error("Could not open in new tab. Allow popups for this site.");
                       });
                     }}
@@ -214,13 +182,13 @@ function PreviewOverlay({
             )}
             {!loading && !error && src && isImage && (
               <div className="flex flex-1 items-center justify-center overflow-auto p-4 scrollbar-hide">
-                <img src={src} alt={name} className="max-h-[70vh] max-w-full object-contain" />
+                <img src={src} alt={item?.name ?? ""} className="max-h-[70vh] max-w-full object-contain" />
               </div>
             )}
             {!loading && !error && src && isPdf && (
               <iframe
                 src={src}
-                title={name}
+                title={item?.name ?? ""}
                 className="h-[70vh] w-full flex-1 border-0 bg-white"
               />
             )}
@@ -228,18 +196,20 @@ function PreviewOverlay({
               <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
                 <FileText className="mx-auto h-12 w-12 text-gray-400" />
                 <p className="mt-2 text-sm text-gray-600">Preview not available for this file type.</p>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void openDocumentInNewTab(href!, meta).catch(() => {
-                      toast.error("Could not open in new tab. Allow popups for this site.");
-                    });
-                  }}
-                  className="bni-btn-link mt-3 text-[var(--bni-navy)]"
-                >
-                  Open in new tab
-                </button>
+                {item && hasSource && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void openDocumentItemInNewTab(item).catch(() => {
+                        toast.error("Could not open in new tab. Allow popups for this site.");
+                      });
+                    }}
+                    className="bni-btn-link mt-3 text-[var(--bni-navy)]"
+                  >
+                    Open in new tab
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -296,9 +266,7 @@ export function DocumentGallery({
   variant?: "compact" | "card";
 }) {
   const [preview, setPreview] = useState<{
-    href: string;
-    name: string;
-    type: string;
+    item: DocumentItem;
     isPdf: boolean;
     isImage: boolean;
   } | null>(null);
@@ -311,31 +279,17 @@ export function DocumentGallery({
 
   const badgeLabel = status === "uploaded" ? "Uploaded" : "Ready";
 
-  function handleView(
-    href: string,
-    name: string,
-    type: string,
-    isPdf: boolean,
-    isImage: boolean,
-  ) {
-    setPreview({ href, name, type, isPdf, isImage });
-  }
-
-  const rowClass =
-    variant === "card"
-      ? "bni-doc-row"
-      : "bni-doc-row";
-
   return (
     <>
       <div className={variant === "card" ? "grid gap-1.5 sm:grid-cols-2" : "space-y-1.5"}>
         {items.map((item, i) => {
-          const href = previewHref(item);
+          const href = resolveDocumentHref(item);
           const isImage = isImageDocument(item.type, item.name);
           const isPdf = isPdfDocument(item.type, item.name);
+          const hasSource = Boolean(item.dataUrl || item.url);
 
           return (
-            <div key={`${item.name}-${i}`} className={rowClass}>
+            <div key={`${item.name}-${i}`} className="bni-doc-row">
               <Thumbnail href={href} name={item.name} isImage={isImage} isPdf={isPdf} />
 
               <div className="min-w-0 flex-1">
@@ -354,13 +308,11 @@ export function DocumentGallery({
               </div>
 
               <div className="bni-doc-actions flex flex-wrap items-center justify-end gap-1 shrink-0">
-                {href ? (
+                {hasSource ? (
                   <>
                     <button
                       type="button"
-                      onClick={() =>
-                        handleView(href, item.name, item.type, isPdf, isImage)
-                      }
+                      onClick={() => setPreview({ item, isPdf, isImage })}
                       className="bni-btn-navy"
                       title="View in app"
                     >
@@ -371,10 +323,7 @@ export function DocumentGallery({
                       type="button"
                       onClick={async () => {
                         try {
-                          await downloadDocument(href, {
-                            name: item.name,
-                            type: item.type,
-                          });
+                          await downloadDocumentItem(item);
                         } catch {
                           toast.error("Could not download file");
                         }
@@ -388,10 +337,7 @@ export function DocumentGallery({
                     <button
                       type="button"
                       onClick={() => {
-                        void openDocumentInNewTab(href, {
-                          name: item.name,
-                          type: item.type,
-                        }).catch(() => {
+                        void openDocumentItemInNewTab(item).catch(() => {
                           toast.error("Could not open in new tab. Allow popups for this site.");
                         });
                       }}
@@ -424,9 +370,7 @@ export function DocumentGallery({
       <PreviewOverlay
         open={!!preview}
         onClose={() => setPreview(null)}
-        href={preview?.href ?? null}
-        name={preview?.name ?? ""}
-        type={preview?.type ?? ""}
+        item={preview?.item ?? null}
         isPdf={preview?.isPdf ?? false}
         isImage={preview?.isImage ?? false}
       />
