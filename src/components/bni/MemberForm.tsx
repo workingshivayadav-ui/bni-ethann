@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Camera,
   Loader2,
+  X,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api/client";
 import type { MemberRow } from "@/lib/api/members.types";
