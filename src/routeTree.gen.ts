@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiMembersRouteImport } from './routes/api/members'
+import { Route as ApiMembersFilesDeliveryRouteImport } from './routes/api/members/files/delivery'
 import { Route as ApiMembersExportCsvRouteImport } from './routes/api/members.export.csv'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +24,11 @@ const ApiMembersRoute = ApiMembersRouteImport.update({
   path: '/api/members',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMembersFilesDeliveryRoute = ApiMembersFilesDeliveryRouteImport.update({
+  id: '/files/delivery',
+  path: '/files/delivery',
+  getParentRoute: () => ApiMembersRoute,
+} as any)
 const ApiMembersExportCsvRoute = ApiMembersExportCsvRouteImport.update({
   id: '/export/csv',
   path: '/export/csv',
@@ -33,24 +39,40 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/members': typeof ApiMembersRouteWithChildren
   '/api/members/export/csv': typeof ApiMembersExportCsvRoute
+  '/api/members/files/delivery': typeof ApiMembersFilesDeliveryRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/members': typeof ApiMembersRouteWithChildren
   '/api/members/export/csv': typeof ApiMembersExportCsvRoute
+  '/api/members/files/delivery': typeof ApiMembersFilesDeliveryRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/members': typeof ApiMembersRouteWithChildren
   '/api/members/export/csv': typeof ApiMembersExportCsvRoute
+  '/api/members/files/delivery': typeof ApiMembersFilesDeliveryRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/members' | '/api/members/export/csv'
+  fullPaths:
+    | '/'
+    | '/api/members'
+    | '/api/members/export/csv'
+    | '/api/members/files/delivery'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/members' | '/api/members/export/csv'
-  id: '__root__' | '/' | '/api/members' | '/api/members/export/csv'
+  to:
+    | '/'
+    | '/api/members'
+    | '/api/members/export/csv'
+    | '/api/members/files/delivery'
+  id:
+    | '__root__'
+    | '/'
+    | '/api/members'
+    | '/api/members/export/csv'
+    | '/api/members/files/delivery'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -74,6 +96,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMembersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/members/files/delivery': {
+      id: '/api/members/files/delivery'
+      path: '/files/delivery'
+      fullPath: '/api/members/files/delivery'
+      preLoaderRoute: typeof ApiMembersFilesDeliveryRouteImport
+      parentRoute: typeof ApiMembersRoute
+    }
     '/api/members/export/csv': {
       id: '/api/members/export/csv'
       path: '/export/csv'
@@ -86,10 +115,12 @@ declare module '@tanstack/react-router' {
 
 interface ApiMembersRouteChildren {
   ApiMembersExportCsvRoute: typeof ApiMembersExportCsvRoute
+  ApiMembersFilesDeliveryRoute: typeof ApiMembersFilesDeliveryRoute
 }
 
 const ApiMembersRouteChildren: ApiMembersRouteChildren = {
   ApiMembersExportCsvRoute: ApiMembersExportCsvRoute,
+  ApiMembersFilesDeliveryRoute: ApiMembersFilesDeliveryRoute,
 }
 
 const ApiMembersRouteWithChildren = ApiMembersRoute._addFileChildren(

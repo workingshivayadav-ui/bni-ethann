@@ -22,7 +22,11 @@ import {
   FileText,
   CheckCircle2,
 } from "lucide-react";
-import { DocumentGallery } from "@/components/bni/DocumentGallery";
+import {
+  DocumentGallery,
+  DocumentPreviewOverlay,
+  type DocumentPreviewState,
+} from "@/components/bni/DocumentGallery";
 
 export const membersQueryOptions = queryOptions({
   queryKey: ["members"],
@@ -43,6 +47,7 @@ export function RosterPanel() {
 
   const [query, setQuery] = useState("");
   const [viewMember, setViewMember] = useState<MemberRow | null>(null);
+  const [docPreview, setDocPreview] = useState<DocumentPreviewState | null>(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -126,7 +131,22 @@ export function RosterPanel() {
         </div>
       </aside>
 
-      <MemberDetailDialog member={viewMember} onClose={() => setViewMember(null)} />
+      <MemberDetailDialog
+        member={viewMember}
+        previewOpen={!!docPreview}
+        onViewDocument={setDocPreview}
+        onClose={() => {
+          setViewMember(null);
+          setDocPreview(null);
+        }}
+      />
+      <DocumentPreviewOverlay
+        open={!!docPreview}
+        onClose={() => setDocPreview(null)}
+        item={docPreview?.item ?? null}
+        isPdf={docPreview?.isPdf ?? false}
+        isImage={docPreview?.isImage ?? false}
+      />
     </>
   );
 }
@@ -227,15 +247,27 @@ function MemberCard({
 function MemberDetailDialog({
   member,
   onClose,
+  onViewDocument,
+  previewOpen,
 }: {
   member: MemberRow | null;
   onClose: () => void;
+  onViewDocument: (preview: DocumentPreviewState) => void;
+  previewOpen: boolean;
 }) {
   if (!member) return null;
 
   return (
-    <Dialog open={!!member} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto overflow-x-hidden p-0 gap-0 scrollbar-hide">
+    <Dialog open={!!member} modal={!previewOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        className="max-w-2xl max-h-[92vh] overflow-y-auto overflow-x-hidden p-0 gap-0 scrollbar-hide"
+        onInteractOutside={(e) => {
+          const target = e.target as HTMLElement | null;
+          if (target?.closest?.("[data-document-preview]")) {
+            e.preventDefault();
+          }
+        }}
+      >
         <div className="bg-[var(--bni-navy)] px-6 py-5 text-white">
           <DialogHeader>
             <DialogTitle className="font-display text-2xl text-white">
@@ -311,7 +343,11 @@ function MemberDetailDialog({
                 Uploaded documents ({member.attachments.length})
               </h3>
             </div>
-            <DocumentGallery items={member.attachments} status="uploaded" />
+            <DocumentGallery
+              items={member.attachments}
+              status="uploaded"
+              onViewDocument={onViewDocument}
+            />
             {member.storageFolder && (
               <p className="text-[10px] text-gray-400 mt-3">Storage folder: {member.storageFolder}</p>
             )}

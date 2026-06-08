@@ -337,13 +337,17 @@ router.get("/files/delivery", async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid file url" });
     }
 
-    const downloadUrl = storedUrl.includes("res.cloudinary.com")
-      ? getAuthenticatedDownloadUrl(storedUrl, { type, name })
-      : storedUrl;
-    const upstream = await fetch(downloadUrl);
+    // Public Cloudinary assets load from the stored CDN URL; signed URLs are fallback only.
+    let upstream = await fetch(storedUrl);
+    if (!upstream.ok && storedUrl.includes("res.cloudinary.com")) {
+      const signedUrl = getAuthenticatedDownloadUrl(storedUrl, { type, name });
+      if (signedUrl !== storedUrl) {
+        upstream = await fetch(signedUrl);
+      }
+    }
 
     if (!upstream.ok) {
-      console.error("File delivery failed:", upstream.status, downloadUrl);
+      console.error("File delivery failed:", upstream.status, storedUrl);
       return res.status(upstream.status).json({
         success: false,
         message: "Could not fetch file from storage",
