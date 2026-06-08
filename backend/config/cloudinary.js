@@ -13,7 +13,7 @@ const uploadOnCloudinary = async (fileData, options = {}) => {
     if (!fileData) return null;
 
     const uploadOptions = {
-      resource_type: "auto",
+      resource_type: options.resource_type || "auto",
       ...(options.folder ? { folder: options.folder } : {}),
       ...(options.public_id ? { public_id: options.public_id, overwrite: true } : {}),
     };

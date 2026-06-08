@@ -7,6 +7,10 @@ import {
   FileText,
   X,
 } from "lucide-react";
+import {
+  documentDeliveryUrl,
+  openDocumentInNewTab,
+} from "@/lib/api/documentDelivery";
 
 export type DocumentItem = {
   name: string;
@@ -38,7 +42,7 @@ function previewHref(item: DocumentItem) {
   return item.url ?? item.dataUrl ?? null;
 }
 
-async function toPreviewUrl(href: string): Promise<string> {
+async function toBlobPreviewUrl(href: string): Promise<string> {
   if (href.startsWith("data:")) {
     const res = await fetch(href);
     const blob = await res.blob();
@@ -47,16 +51,12 @@ async function toPreviewUrl(href: string): Promise<string> {
   return href;
 }
 
-function pdfEmbedSrc(href: string) {
-  if (href.startsWith("blob:") || href.startsWith("data:")) return href;
-  return `${href}#view=FitH`;
-}
-
 function PreviewOverlay({
   open,
   onClose,
   href,
   name,
+  type,
   isPdf,
   isImage,
 }: {
@@ -64,12 +64,16 @@ function PreviewOverlay({
   onClose: () => void;
   href: string | null;
   name: string;
+  type: string;
   isPdf: boolean;
   isImage: boolean;
 }) {
   const [src, setSrc] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+
+  const meta = { name, type };
+  const deliveryHref = href ? documentDeliveryUrl(href, meta) : null;
 
   useEffect(() => {
     if (!open) return;
@@ -96,27 +100,46 @@ function PreviewOverlay({
     setLoading(true);
     setError(false);
 
-    toPreviewUrl(href)
-      .then((url) => {
-        if (cancelled) {
-          if (url.startsWith("blob:")) URL.revokeObjectURL(url);
+    const load = async () => {
+      try {
+        if (href.startsWith("data:") || href.startsWith("blob:")) {
+          const url = await toBlobPreviewUrl(href);
+          if (!cancelled) {
+            blobUrl = url.startsWith("blob:") ? url : null;
+            setSrc(url);
+          }
           return;
         }
-        blobUrl = url.startsWith("blob:") ? url : null;
+
+        if (isPdf) {
+          if (!cancelled) setSrc(deliveryHref);
+          return;
+        }
+
+        const res = await fetch(deliveryHref!);
+        if (!res.ok) throw new Error("fetch failed");
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        if (cancelled) {
+          URL.revokeObjectURL(url);
+          return;
+        }
+        blobUrl = url;
         setSrc(url);
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) setError(true);
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    };
+
+    load();
 
     return () => {
       cancelled = true;
       if (blobUrl) URL.revokeObjectURL(blobUrl);
     };
-  }, [open, href]);
+  }, [open, href, isPdf, deliveryHref]);
 
   if (!open || typeof document === "undefined") return null;
 
@@ -135,15 +158,14 @@ function PreviewOverlay({
         <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-100 shrink-0">
           <p className="text-sm font-semibold text-gray-900 truncate">{name}</p>
           <div className="flex items-center gap-2 shrink-0">
-            {href && (
-              <a
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
+            {href && deliveryHref && (
+              <button
+                type="button"
+                onClick={() => openDocumentInNewTab(href, meta)}
                 className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--bni-navy)] hover:text-[var(--bni-red)]"
               >
                 <ExternalLink className="w-3.5 h-3.5" /> New tab
-              </a>
+              </button>
             )}
             <button
               type="button"
@@ -162,14 +184,13 @@ function PreviewOverlay({
             <div className="text-center px-6">
               <p className="text-sm text-[var(--bni-red)]">Could not load preview.</p>
               {href && (
-                <a
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={() => openDocumentInNewTab(href, meta)}
                   className="inline-flex items-center gap-1 mt-3 text-sm font-semibold text-[var(--bni-navy)] hover:underline"
                 >
                   <ExternalLink className="w-4 h-4" /> Open in new tab
-                </a>
+                </button>
               )}
             </div>
           )}
@@ -180,7 +201,7 @@ function PreviewOverlay({
           )}
           {!loading && !error && src && isPdf && (
             <iframe
-              src={pdfEmbedSrc(src)}
+              src={src}
               title={name}
               className="w-full h-[78vh] border-0 bg-white"
             />
@@ -189,13 +210,13 @@ function PreviewOverlay({
             <div className="text-center p-8">
               <FileText className="w-12 h-12 mx-auto text-gray-400" />
               <p className="text-sm text-gray-600 mt-2">Preview not available for this file type.</p>
-              <a
-                href={src}
-                download={name}
+              <button
+                type="button"
+                onClick={() => openDocumentInNewTab(href!, meta)}
                 className="inline-flex mt-3 text-sm font-semibold text-[var(--bni-navy)] hover:underline"
               >
-                Download file
-              </a>
+                Download / open file
+              </button>
             </div>
           )}
         </div>
@@ -254,6 +275,7 @@ export function DocumentGallery({
   const [preview, setPreview] = useState<{
     href: string;
     name: string;
+    type: string;
     isPdf: boolean;
     isImage: boolean;
   } | null>(null);
@@ -268,8 +290,14 @@ export function DocumentGallery({
   const actionLabel = status === "uploaded" ? "Open" : "Preview";
   const ActionIcon = status === "uploaded" ? ExternalLink : Eye;
 
-  function handleOpen(href: string, name: string, isPdf: boolean, isImage: boolean) {
-    setPreview({ href, name, isPdf, isImage });
+  function handleOpen(
+    href: string,
+    name: string,
+    type: string,
+    isPdf: boolean,
+    isImage: boolean,
+  ) {
+    setPreview({ href, name, type, isPdf, isImage });
   }
 
   const rowClass =
@@ -308,7 +336,9 @@ export function DocumentGallery({
                 {href ? (
                   <button
                     type="button"
-                    onClick={() => handleOpen(href, item.name, isPdf, isImage)}
+                    onClick={() =>
+                      handleOpen(href, item.name, item.type, isPdf, isImage)
+                    }
                     className="inline-flex items-center gap-1 text-[10px] font-semibold text-white bg-[var(--bni-navy)] hover:bg-[var(--bni-red)] rounded px-2 py-1 transition-colors"
                   >
                     <ActionIcon className="w-3 h-3" />
@@ -338,6 +368,7 @@ export function DocumentGallery({
         onClose={() => setPreview(null)}
         href={preview?.href ?? null}
         name={preview?.name ?? ""}
+        type={preview?.type ?? ""}
         isPdf={preview?.isPdf ?? false}
         isImage={preview?.isImage ?? false}
       />

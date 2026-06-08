@@ -6,6 +6,10 @@ import {
   attachmentPublicId,
   memberStorageFolder,
 } from "../lib/memberFolder.js";
+import {
+  getAuthenticatedDownloadUrl,
+  isPdfAttachment,
+} from "../lib/cloudinaryUrls.js";
 
 const router = express.Router();
 
@@ -24,7 +28,12 @@ const estimateBytesFromDataUrl = (dataUrl) => {
 };
 
 const resolveAttachmentUrl = (doc, attachment) => {
-  if (attachment.url) return attachment.url;
+  if (attachment.url) {
+    if (isPdfAttachment(attachment.type, attachment.name)) {
+      return getAuthenticatedDownloadUrl(attachment.url, attachment);
+    }
+    return attachment.url;
+  }
 
   const folder =
     doc.storageFolder || memberStorageFolder(doc.firstName, doc.lastName);
@@ -35,9 +44,10 @@ const resolveAttachmentUrl = (doc, attachment) => {
   const isImage =
     attachment.type?.startsWith("image/") ||
     /\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(attachment.name);
-  const resource = isImage ? "image" : "auto";
+  const resource = isImage ? "image" : "raw";
 
-  return `https://res.cloudinary.com/${cloudName}/${resource}/upload/${publicId}`;
+  const fallback = `https://res.cloudinary.com/${cloudName}/${resource}/upload/${publicId}`;
+  return getAuthenticatedDownloadUrl(fallback, attachment);
 };
 
 /** Normalize Mongo/in-memory docs to the shape the frontend expects. */
@@ -227,6 +237,7 @@ router.post("/", async (req, res) => {
       const url = await uploadOnCloudinary(file.dataUrl, {
         folder: storageFolder,
         public_id: attachmentPublicId(file.name),
+        resource_type: isPdfAttachment(file.type, file.name) ? "raw" : "auto",
       });
 
       if (!url) {
@@ -304,6 +315,50 @@ router.post("/", async (req, res) => {
       message: error.message || "Internal Server Error",
       error: error.message || "Internal Server Error",
     });
+  }
+});
+
+// Stream a stored attachment (fixes Cloudinary PDF 401 / iframe issues)
+router.get("/files/delivery", async (req, res) => {
+  try {
+    const storedUrl = req.query.url;
+    const name = typeof req.query.name === "string" ? req.query.name : "document";
+    const type = typeof req.query.type === "string" ? req.query.type : "";
+
+    if (
+      typeof storedUrl !== "string" ||
+      (!storedUrl.includes("res.cloudinary.com") &&
+        !storedUrl.includes("api.cloudinary.com"))
+    ) {
+      return res.status(400).json({ success: false, message: "Invalid file url" });
+    }
+
+    const downloadUrl = storedUrl.includes("res.cloudinary.com")
+      ? getAuthenticatedDownloadUrl(storedUrl, { type, name })
+      : storedUrl;
+    const upstream = await fetch(downloadUrl);
+
+    if (!upstream.ok) {
+      console.error("File delivery failed:", upstream.status, downloadUrl);
+      return res.status(upstream.status).json({
+        success: false,
+        message: "Could not fetch file from storage",
+      });
+    }
+
+    const contentType =
+      upstream.headers.get("content-type") ||
+      (isPdfAttachment(type, name) ? "application/pdf" : "application/octet-stream");
+
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Content-Disposition", `inline; filename="${name.replace(/"/g, "")}"`);
+    res.setHeader("Cache-Control", "private, max-age=300");
+
+    const buffer = Buffer.from(await upstream.arrayBuffer());
+    return res.send(buffer);
+  } catch (error) {
+    console.error("File delivery error:", error);
+    return res.status(500).json({ success: false, message: "File delivery failed" });
   }
 });
 
