@@ -1,5 +1,6 @@
 import express from "express";
 import mongoose from "mongoose";
+import { v2 as cloudinary } from "cloudinary";
 import Member from "../models/member.js";
 import uploadOnCloudinary from "../config/cloudinary.js";
 import {
@@ -21,6 +22,20 @@ const makeId = () => Math.random().toString(36).substring(2, 10);
 const estimateBytesFromDataUrl = (dataUrl) => {
   const base64 = dataUrl.split(",")[1] || "";
   return Math.floor((base64.length * 3) / 4);
+};
+
+const resolveAttachmentUrl = (doc, attachment) => {
+  if (attachment.url) return attachment.url;
+
+  const folder =
+    doc.storageFolder || memberStorageFolder(doc.firstName, doc.lastName);
+  if (!folder || !attachment.name) return null;
+
+  const publicId = `${folder}/${attachmentPublicId(attachment.name)}`;
+  return cloudinary.url(publicId, {
+    secure: true,
+    resource_type: "auto",
+  });
 };
 
 /** Normalize Mongo/in-memory docs to the shape the frontend expects. */
@@ -50,12 +65,13 @@ const formatMember = (doc) => {
     linkedin: doc.linkedin || null,
     notes: doc.notes || null,
     photoDataUrl: doc.photoUrl || doc.photoDataUrl || null,
-    storageFolder: doc.storageFolder || null,
+    storageFolder:
+      doc.storageFolder || memberStorageFolder(doc.firstName, doc.lastName),
     attachments: (doc.attachments || []).map((a) => ({
       name: a.name,
       type: a.type,
       size: a.size,
-      url: a.url || null,
+      url: resolveAttachmentUrl(doc, a),
     })),
   };
 };

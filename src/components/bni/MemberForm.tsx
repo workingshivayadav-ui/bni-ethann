@@ -1,8 +1,18 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useRef, type ChangeEvent, type KeyboardEvent } from "react";
 import { z } from "zod";
-import { ArrowLeft, ArrowRight, Upload, Paperclip, X, CheckCircle2, Camera } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Upload,
+  Paperclip,
+  CheckCircle2,
+  Camera,
+  Loader2,
+} from "lucide-react";
 import { apiFetch } from "@/lib/api/client";
+import type { MemberRow } from "@/lib/api/members.types";
+import { DocumentGallery } from "@/components/bni/DocumentGallery";
 import { toast } from "sonner";
 
 const fieldSchemas = {
@@ -74,8 +84,10 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
   const [photoError, setPhotoError] = useState<string | undefined>();
   const [attachError, setAttachError] = useState<string | undefined>();
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [readingFiles, setReadingFiles] = useState(false);
   const [serviceInput, setServiceInput] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [submittedMember, setSubmittedMember] = useState<MemberRow | null>(null);
   const photoRef = useRef<HTMLInputElement>(null);
   const attachRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
@@ -93,8 +105,9 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: { member?: MemberRow }) => {
       queryClient.invalidateQueries({ queryKey: ["members"] });
+      setSubmittedMember(data.member ?? null);
       setSubmitted(true);
       onSuccess();
     },
@@ -159,22 +172,36 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
     const url = await readFile(file);
     setPhotoDataUrl(url);
     setPhotoError(undefined);
+    toast.success("Profile photo uploaded");
   }
 
   async function onAttach(e: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
+    setReadingFiles(true);
     const added: Attachment[] = [];
-    for (const f of files) {
-      if (f.size > MAX_ATTACH) {
-        toast.error(`${f.name} exceeds 10 MB.`);
-        continue;
+    try {
+      for (const f of files) {
+        if (f.size > MAX_ATTACH) {
+          toast.error(`${f.name} exceeds 10 MB.`);
+          continue;
+        }
+        const url = await readFile(f);
+        added.push({ name: f.name, type: f.type, size: f.size, dataUrl: url });
       }
-      const url = await readFile(f);
-      added.push({ name: f.name, type: f.type, size: f.size, dataUrl: url });
+      setAttachments((a) => [...a, ...added]);
+      if (added.length > 0) {
+        setAttachError(undefined);
+        toast.success(
+          added.length === 1
+            ? `"${added[0].name}" uploaded successfully`
+            : `${added.length} documents uploaded successfully`,
+        );
+      }
+    } finally {
+      setReadingFiles(false);
+      if (attachRef.current) attachRef.current.value = "";
     }
-    setAttachments((a) => [...a, ...added]);
-    if (added.length > 0) setAttachError(undefined);
-    if (attachRef.current) attachRef.current.value = "";
   }
 
   function addService(raw: string) {
@@ -225,33 +252,84 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
     setErrors({});
     setStep(1);
     setSubmitted(false);
+    setSubmittedMember(null);
   }
+
+  const savedDocs =
+    submittedMember?.attachments?.length
+      ? submittedMember.attachments
+      : attachments.map((a) => ({
+          name: a.name,
+          type: a.type,
+          size: a.size,
+          url: a.dataUrl,
+        }));
 
   if (submitted) {
     return (
-      <div className="bg-white rounded-xl border border-gray-100 p-10 text-center shadow-sm">
-        <div className="w-16 h-16 mx-auto rounded-full bg-[var(--bni-red-lt)] flex items-center justify-center mb-4">
-          <CheckCircle2 className="w-9 h-9 text-[var(--bni-red)]" strokeWidth={2} />
-        </div>
-        <h2 className="font-display font-black text-3xl text-gray-900">Submission received</h2>
-        <p className="text-sm text-gray-600 mt-2 max-w-sm mx-auto">
-          Your profile has been added to the BNI Ethan 2026 roster.
-        </p>
-        <div className="bg-[var(--bni-navy)] rounded-xl px-5 py-4 text-left max-w-sm mx-auto my-6">
-          <div className="text-[10px] tracking-[2px] uppercase text-white/50 font-semibold">
-            Now on the roster
+      <div className="bg-white rounded-xl border border-gray-100 p-8 md:p-10 shadow-sm">
+        <div className="text-center max-w-lg mx-auto">
+          <div className="w-16 h-16 mx-auto rounded-full bg-emerald-100 flex items-center justify-center mb-4 ring-4 ring-emerald-50">
+            <CheckCircle2 className="w-9 h-9 text-emerald-600" strokeWidth={2} />
           </div>
-          <div className="font-display font-bold text-xl text-white mt-1">
-            {form.firstName} {form.lastName}
-          </div>
-          <div className="text-sm text-white/65">{form.company}</div>
+          <h2 className="font-display font-black text-3xl text-gray-900">Submission received</h2>
+          <p className="text-sm text-gray-600 mt-2">
+            Your profile and documents have been saved to the BNI Ethan 2026 roster.
+          </p>
         </div>
-        <button
-          onClick={reset}
-          className="text-sm font-semibold text-[var(--bni-red)] hover:underline"
-        >
-          Submit another profile
-        </button>
+
+        <div className="bg-[var(--bni-navy)] rounded-xl px-5 py-4 text-left max-w-lg mx-auto my-6">
+          <div className="flex items-start gap-4">
+            <div className="w-14 h-14 rounded-full overflow-hidden bg-white/10 shrink-0 ring-2 ring-white/20">
+              {(submittedMember?.photoDataUrl || photoDataUrl) ? (
+                <img
+                  src={submittedMember?.photoDataUrl || photoDataUrl || ""}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center font-display font-black text-lg text-white">
+                  {form.firstName[0]}
+                  {form.lastName[0]}
+                </div>
+              )}
+            </div>
+            <div>
+              <div className="text-[10px] tracking-[2px] uppercase text-white/50 font-semibold">
+                Now on the roster
+              </div>
+              <div className="font-display font-bold text-xl text-white mt-1">
+                {form.firstName} {form.lastName}
+              </div>
+              <div className="text-sm text-white/65">{form.company}</div>
+            </div>
+          </div>
+        </div>
+
+        {savedDocs.length > 0 && (
+          <div className="max-w-lg mx-auto mb-8">
+            <div className="flex items-center gap-2 mb-3">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+              <h3 className="font-display font-bold text-lg text-gray-900">
+                Your uploaded documents
+              </h3>
+            </div>
+            <p className="text-xs text-gray-500 mb-4">
+              {savedDocs.length} file{savedDocs.length === 1 ? "" : "s"} stored securely. You can
+              open each one below to confirm.
+            </p>
+            <DocumentGallery items={savedDocs} status="uploaded" columns={1} />
+          </div>
+        )}
+
+        <div className="text-center">
+          <button
+            onClick={reset}
+            className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--bni-red)] hover:underline"
+          >
+            Submit another profile
+          </button>
+        </div>
       </div>
     );
   }
@@ -303,26 +381,37 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
               Profile photo<span className="text-[var(--bni-red)] ml-0.5">*</span>
             </label>
             <div className="flex items-center gap-5">
-            <button
-              type="button"
-              onClick={() => photoRef.current?.click()}
-              className={`w-24 h-24 rounded-full border-2 border-dashed flex items-center justify-center overflow-hidden bg-[var(--bni-navy-lt)] hover:border-[var(--bni-red)] transition ${
-                photoError ? "border-[var(--bni-red)]" : "border-gray-200"
-              }`}
-            >
-              {photoDataUrl ? (
-                <img src={photoDataUrl} className="w-full h-full object-cover" alt="" />
-              ) : (
-                <Camera className="w-8 h-8 text-[var(--bni-navy)]/40" />
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => photoRef.current?.click()}
+                className={`w-24 h-24 rounded-full border-2 border-dashed flex items-center justify-center overflow-hidden bg-[var(--bni-navy-lt)] hover:border-[var(--bni-red)] transition ${
+                  photoError
+                    ? "border-[var(--bni-red)]"
+                    : photoDataUrl
+                      ? "border-emerald-400 ring-2 ring-emerald-100"
+                      : "border-gray-200"
+                }`}
+              >
+                {photoDataUrl ? (
+                  <img src={photoDataUrl} className="w-full h-full object-cover" alt="" />
+                ) : (
+                  <Camera className="w-8 h-8 text-[var(--bni-navy)]/40" />
+                )}
+              </button>
+              {photoDataUrl && (
+                <span className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center ring-2 ring-white">
+                  <CheckCircle2 className="w-4 h-4" />
+                </span>
               )}
-            </button>
+            </div>
             <div className="flex-1">
               <button
                 type="button"
                 onClick={() => photoRef.current?.click()}
                 className="inline-flex items-center gap-2 border border-gray-200 rounded-md px-3 py-2 text-sm font-medium hover:bg-gray-50"
               >
-                <Upload className="w-4 h-4" /> Choose Photo
+                <Upload className="w-4 h-4" /> {photoDataUrl ? "Change photo" : "Choose photo"}
               </button>
               <input
                 ref={photoRef}
@@ -331,7 +420,15 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
                 onChange={onPhoto}
                 className="hidden"
               />
-              <p className="text-xs text-gray-500 mt-2">Required · JPG or PNG · Max 5 MB · Square crop recommended</p>
+              {photoDataUrl ? (
+                <p className="text-xs text-emerald-700 font-medium mt-2 flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Photo uploaded — ready to continue
+                </p>
+              ) : (
+                <p className="text-xs text-gray-500 mt-2">
+                  Required · JPG or PNG · Max 5 MB · Square crop recommended
+                </p>
+              )}
             </div>
           </div>
           {photoError && (
@@ -527,27 +624,73 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
       )}
 
       {step === 4 && (
-        <Step title="Documents" badge={4} desc="Required — upload at least one document (brochure, logo, business card, PDF, etc.). Files are stored under your name.">
+        <Step
+          title="Documents"
+          badge={4}
+          desc="Required — upload at least one document (brochure, logo, business card, PDF, etc.). Files are stored under your name."
+        >
+          {attachments.length > 0 && (
+            <div className="space-y-3">
+              <div className="text-[11px] uppercase tracking-wider font-semibold text-gray-600">
+                Your uploaded documents
+              </div>
+              <DocumentGallery
+                items={attachments.map((a) => ({
+                  name: a.name,
+                  type: a.type,
+                  size: a.size,
+                  dataUrl: a.dataUrl,
+                }))}
+                status="ready"
+                columns={1}
+                onRemove={(i) => {
+                  setAttachments((all) => all.filter((_, j) => j !== i));
+                  setAttachError(undefined);
+                }}
+              />
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-gray-700">
               Documents<span className="text-[var(--bni-red)] ml-0.5">*</span>
             </label>
-          <button
-            type="button"
-            onClick={() => attachRef.current?.click()}
-            className={`w-full border-2 border-dashed rounded-xl p-8 text-center hover:border-[var(--bni-red)] hover:bg-[var(--bni-red-lt)]/40 transition ${
-              attachError ? "border-[var(--bni-red)]" : "border-gray-200"
-            }`}
-          >
-            <Paperclip className="w-8 h-8 mx-auto text-gray-400" />
-            <div className="mt-2 font-semibold text-gray-700">Click to attach files</div>
-            <div className="text-xs text-gray-500 mt-1">
-              Required · JPG · PNG · PDF · DOCX · up to 10 MB each
-            </div>
-          </button>
-          {attachError && (
-            <div className="text-xs text-[var(--bni-red)] font-medium">{attachError}</div>
-          )}
+            <button
+              type="button"
+              onClick={() => !readingFiles && attachRef.current?.click()}
+              disabled={readingFiles}
+              className={`w-full border-2 border-dashed rounded-xl p-8 text-center transition disabled:opacity-60 ${
+                attachError
+                  ? "border-[var(--bni-red)] bg-red-50/30"
+                  : attachments.length > 0
+                    ? "border-emerald-300 bg-emerald-50/40 hover:border-emerald-400 hover:bg-emerald-50/70"
+                    : "border-gray-200 hover:border-[var(--bni-red)] hover:bg-[var(--bni-red-lt)]/40"
+              }`}
+            >
+              {readingFiles ? (
+                <>
+                  <Loader2 className="w-8 h-8 mx-auto text-[var(--bni-red)] animate-spin" />
+                  <div className="mt-2 font-semibold text-gray-700">Uploading…</div>
+                </>
+              ) : (
+                <>
+                  <Paperclip
+                    className={`w-8 h-8 mx-auto ${
+                      attachments.length > 0 ? "text-emerald-600" : "text-gray-400"
+                    }`}
+                  />
+                  <div className="mt-2 font-semibold text-gray-700">
+                    {attachments.length > 0 ? "Add more documents" : "Click to attach files"}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    Required · JPG · PNG · PDF · DOCX · up to 10 MB each
+                  </div>
+                </>
+              )}
+            </button>
+            {attachError && (
+              <div className="text-xs text-[var(--bni-red)] font-medium">{attachError}</div>
+            )}
           </div>
           <input
             ref={attachRef}
@@ -557,37 +700,6 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
             onChange={onAttach}
             className="hidden"
           />
-          {attachments.length > 0 && (
-            <div className="mt-4 space-y-2">
-              <div className="text-[11px] uppercase tracking-wider font-semibold text-gray-600">
-                {attachments.length} file{attachments.length === 1 ? "" : "s"} attached
-              </div>
-              {attachments.map((a, i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between border border-gray-100 rounded-md px-3 py-2 bg-gray-50"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Paperclip className="w-3.5 h-3.5 text-[var(--bni-red)] shrink-0" />
-                    <span className="text-sm truncate">{a.name}</span>
-                    <span className="text-xs text-gray-400 shrink-0">
-                      {(a.size / 1024).toFixed(0)} KB
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAttachments((all) => all.filter((_, j) => j !== i));
-                      setAttachError(undefined);
-                    }}
-                    className="text-gray-400 hover:text-[var(--bni-red)]"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
 
           <Divider>Notes for designer</Divider>
           <Field label="Any special instructions" hint="Prefix (Dr./Prof./Adv.), product names, design preferences, corrections">
@@ -640,8 +752,31 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
           {form.address && <ReviewRow label="Address" value={form.address} />}
           {form.serviceArea && <ReviewRow label="Service area" value={form.serviceArea} />}
           {form.referral && <ReviewRow label="Ideal referral" value={form.referral} />}
+
           {attachments.length > 0 && (
-            <ReviewRow label="Attachments" value={`${attachments.length} file(s)`} />
+            <div className="rounded-xl border border-gray-100 bg-[var(--off-white)] p-4 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span className="text-sm font-semibold text-gray-900">
+                    Documents ({attachments.length})
+                  </span>
+                </div>
+                <span className="text-[10px] uppercase tracking-wider font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+                  Ready to submit
+                </span>
+              </div>
+              <DocumentGallery
+                items={attachments.map((a) => ({
+                  name: a.name,
+                  type: a.type,
+                  size: a.size,
+                  dataUrl: a.dataUrl,
+                }))}
+                status="ready"
+                columns={1}
+              />
+            </div>
           )}
 
           <div className="flex items-center justify-between pt-3">
