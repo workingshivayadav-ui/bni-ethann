@@ -41,6 +41,7 @@ app.get("/_health", (req, res) => {
       configured: isCloudinaryConfigured(),
       cloudName: process.env.CLOUDINARY_CLOUD_NAME || null,
     },
+    attachmentField: "firstname_lastname_attachments",
   });
 });
 

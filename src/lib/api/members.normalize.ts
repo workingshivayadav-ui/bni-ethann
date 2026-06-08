@@ -2,6 +2,44 @@ import type { MemberRow } from "@/lib/api/members.types";
 
 const CLOUDINARY_CLOUD = "dk78j6zxp";
 
+function sanitizeNamePart(value: string) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, "_")
+    .replace(/[^a-zA-Z0-9_]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
+}
+
+export function memberAttachmentsFieldKey(firstName: string, lastName: string) {
+  const first = sanitizeNamePart(firstName) || "member";
+  const last = sanitizeNamePart(lastName) || "profile";
+  return `${first}_${last}_attachments`;
+}
+
+type AttachmentItem = MemberRow["attachments"][number];
+
+function readAttachmentsFromApi(
+  member: Record<string, unknown>,
+  firstName: string,
+  lastName: string,
+): AttachmentItem[] {
+  const key = memberAttachmentsFieldKey(firstName, lastName);
+  const fromKey = member[key];
+  if (Array.isArray(fromKey)) return fromKey as AttachmentItem[];
+
+  const legacy = member.attachments;
+  if (Array.isArray(legacy)) return legacy as AttachmentItem[];
+
+  for (const field of Object.keys(member)) {
+    if (field.endsWith("_attachments") && Array.isArray(member[field])) {
+      return member[field] as AttachmentItem[];
+    }
+  }
+
+  return [];
+}
+
 function memberFolderSlug(firstName: string, lastName: string) {
   const slug = `${firstName || ""}-${lastName || ""}`
     .trim()
@@ -44,10 +82,17 @@ export function enrichMember(member: MemberRow): MemberRow {
   const storageFolder =
     member.storageFolder || `bni-ethan/${memberFolderSlug(member.firstName, member.lastName)}`;
 
+  const raw = member as MemberRow & Record<string, unknown>;
+  const attachmentList = readAttachmentsFromApi(
+    raw,
+    member.firstName,
+    member.lastName,
+  );
+
   return {
     ...member,
     storageFolder,
-    attachments: (member.attachments || []).map((attachment) => ({
+    attachments: attachmentList.map((attachment) => ({
       ...attachment,
       url:
         attachment.url ??

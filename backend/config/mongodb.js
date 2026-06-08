@@ -41,6 +41,11 @@ const connectDB = async () => {
 
     await mongoose.connect(mongoURI, options);
     console.log(`✓ MongoDB connected — database: ${mongoose.connection.db?.databaseName ?? dbName}`);
+
+    const { migrateLegacyAttachmentFields } = await import(
+      "../lib/migrateAttachments.js"
+    );
+    await migrateLegacyAttachmentFields();
   } catch (error) {
     console.warn("⚠ MongoDB Connection Failed - using in-memory fallback:", error.message);
     await mongoose.disconnect().catch(() => {});

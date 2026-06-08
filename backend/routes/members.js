@@ -48,13 +48,21 @@ const resolveAttachmentUrl = (doc, attachment) => {
   return `https://res.cloudinary.com/${cloudName}/${resource}/upload/${publicId}`;
 };
 
-/** Normalize Mongo/in-memory docs to the shape the frontend expects. */
+/** API + Mongo shape: documents live under `{firstName}_{lastName}_attachments`. */
 const formatMember = (doc) => {
   const id = doc._id ? String(doc._id) : doc.id;
   const createdAt =
     doc.createdAt instanceof Date
       ? doc.createdAt.toISOString()
       : doc.createdAt || new Date().toISOString();
+
+  const attachmentsField = memberAttachmentsFieldKey(doc.firstName, doc.lastName);
+  const attachmentList = readMemberAttachments(doc).map((a) => ({
+    name: a.name,
+    type: a.type,
+    size: a.size,
+    url: resolveAttachmentUrl(doc, a),
+  }));
 
   return {
     id,
@@ -77,12 +85,7 @@ const formatMember = (doc) => {
     photoDataUrl: doc.photoUrl || doc.photoDataUrl || null,
     storageFolder:
       doc.storageFolder || memberStorageFolder(doc.firstName, doc.lastName),
-    attachments: readMemberAttachments(doc).map((a) => ({
-      name: a.name,
-      type: a.type,
-      size: a.size,
-      url: resolveAttachmentUrl(doc, a),
-    })),
+    [attachmentsField]: attachmentList,
   };
 };
 
