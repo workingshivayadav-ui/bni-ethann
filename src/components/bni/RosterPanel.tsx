@@ -307,14 +307,14 @@ function MemberDetailDialog({
             </div>
           </section>
 
-          <section className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-              <h3 className="font-display font-bold text-lg text-gray-900">
+          <section className="rounded-lg border border-emerald-200/80 bg-emerald-50/30 p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <h3 className="font-display font-bold text-base text-gray-900">
                 Uploaded documents ({member.attachments.length})
               </h3>
             </div>
-            <DocumentGallery items={member.attachments} status="uploaded" columns={1} />
+            <DocumentGallery items={member.attachments} status="uploaded" />
             {member.storageFolder && (
               <p className="text-[10px] text-gray-400 mt-3">Storage folder: {member.storageFolder}</p>
             )}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CheckCircle2,
   ExternalLink,
@@ -6,6 +6,12 @@ import {
   FileText,
   X,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export type DocumentItem = {
   name: string;
@@ -37,63 +43,142 @@ function previewHref(item: DocumentItem) {
   return item.url ?? item.dataUrl ?? null;
 }
 
-function DocumentPreview({
+async function toPreviewUrl(href: string): Promise<string> {
+  if (href.startsWith("data:")) {
+    const res = await fetch(href);
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
+  }
+  return href;
+}
+
+function PreviewModal({
+  open,
+  onClose,
+  href,
+  name,
+  isPdf,
+  isImage,
+}: {
+  open: boolean;
+  onClose: () => void;
+  href: string | null;
+  name: string;
+  isPdf: boolean;
+  isImage: boolean;
+}) {
+  const [src, setSrc] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    if (!open || !href) {
+      setSrc(null);
+      setError(false);
+      return;
+    }
+
+    let blobUrl: string | null = null;
+    let cancelled = false;
+    setLoading(true);
+    setError(false);
+
+    toPreviewUrl(href)
+      .then((url) => {
+        if (cancelled) {
+          if (url.startsWith("blob:")) URL.revokeObjectURL(url);
+          return;
+        }
+        blobUrl = url.startsWith("blob:") ? url : null;
+        setSrc(url);
+      })
+      .catch(() => {
+        if (!cancelled) setError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [open, href]);
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-4xl w-[95vw] p-0 gap-0 overflow-hidden">
+        <DialogHeader className="px-4 py-3 border-b border-gray-100">
+          <DialogTitle className="text-sm font-semibold truncate pr-6">{name}</DialogTitle>
+        </DialogHeader>
+        <div className="bg-gray-50 min-h-[50vh] max-h-[75vh] flex items-center justify-center">
+          {loading && <p className="text-sm text-gray-500">Loading preview…</p>}
+          {error && (
+            <p className="text-sm text-[var(--bni-red)] px-4 text-center">
+              Could not load preview. Try downloading the file instead.
+            </p>
+          )}
+          {!loading && !error && src && isImage && (
+            <img src={src} alt={name} className="max-h-[75vh] max-w-full object-contain" />
+          )}
+          {!loading && !error && src && isPdf && (
+            <iframe
+              src={src}
+              title={name}
+              className="w-full h-[75vh] border-0 bg-white"
+            />
+          )}
+          {!loading && !error && src && !isImage && !isPdf && (
+            <div className="text-center p-8">
+              <FileText className="w-12 h-12 mx-auto text-gray-400" />
+              <p className="text-sm text-gray-600 mt-2">Preview not available for this file type.</p>
+              <a
+                href={src}
+                download={name}
+                className="inline-flex mt-3 text-sm font-semibold text-[var(--bni-navy)] hover:underline"
+              >
+                Download file
+              </a>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Thumbnail({
   href,
   name,
   isImage,
   isPdf,
 }: {
-  href: string;
+  href: string | null;
   name: string;
   isImage: boolean;
   isPdf: boolean;
 }) {
   const [failed, setFailed] = useState(false);
 
-  if (isImage && !failed) {
+  if (href && isImage && !failed) {
     return (
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="block aspect-[16/9] bg-gray-100 border-b border-gray-100"
-      >
-        <img
-          src={href}
-          alt={name}
-          className="w-full h-full object-contain bg-[var(--bni-navy-lt)]/30"
-          onError={() => setFailed(true)}
-        />
-      </a>
-    );
-  }
-
-  if (isPdf) {
-    return (
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex aspect-[16/9] items-center justify-center bg-red-50 border-b border-red-100"
-      >
-        <div className="text-center">
-          <FileText className="w-12 h-12 mx-auto text-red-500" />
-          <span className="text-xs font-semibold text-red-700 mt-1 block">PDF document</span>
-        </div>
-      </a>
+      <img
+        src={href}
+        alt=""
+        className="w-11 h-11 rounded-lg object-cover border border-gray-100 bg-white shrink-0"
+        onError={() => setFailed(true)}
+      />
     );
   }
 
   return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="flex aspect-[16/9] flex-col items-center justify-center bg-[var(--bni-navy-lt)]/40 border-b border-gray-100 px-4 text-center"
+    <div
+      className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 border ${
+        isPdf ? "bg-red-50 border-red-100" : "bg-[var(--bni-navy-lt)] border-gray-100"
+      }`}
     >
-      <FileText className="w-12 h-12 text-[var(--bni-navy)]/45" />
-      <span className="text-xs font-semibold text-gray-600 mt-2 break-all">{name}</span>
-    </a>
+      <FileText className={`w-5 h-5 ${isPdf ? "text-red-500" : "text-[var(--bni-navy)]/50"}`} />
+    </div>
   );
 }
 
@@ -101,92 +186,169 @@ export function DocumentGallery({
   items,
   status = "uploaded",
   onRemove,
-  columns = 2,
+  variant = "compact",
 }: {
   items: DocumentItem[];
   status?: "ready" | "uploaded";
   onRemove?: (index: number) => void;
   columns?: 1 | 2;
+  variant?: "compact" | "card";
 }) {
+  const [preview, setPreview] = useState<{
+    href: string;
+    name: string;
+    isPdf: boolean;
+    isImage: boolean;
+  } | null>(null);
+
   if (items.length === 0) {
     return (
-      <p className="text-sm text-gray-400 italic py-2">No documents uploaded.</p>
+      <p className="text-sm text-gray-400 italic py-1">No documents uploaded yet.</p>
     );
   }
 
   const badgeLabel = status === "uploaded" ? "Uploaded" : "Ready";
-  const gridClass =
-    columns === 1 ? "grid gap-3 grid-cols-1" : "grid gap-3 grid-cols-1 sm:grid-cols-2";
+
+  function openPreview(href: string, name: string, isPdf: boolean, isImage: boolean) {
+    setPreview({ href, name, isPdf, isImage });
+  }
+
+  function openExternal(href: string) {
+    if (href.startsWith("data:")) {
+      toPreviewUrl(href).then((url) => {
+        window.open(url, "_blank", "noopener,noreferrer");
+        if (url.startsWith("blob:")) {
+          setTimeout(() => URL.revokeObjectURL(url), 60_000);
+        }
+      });
+    } else {
+      window.open(href, "_blank", "noopener,noreferrer");
+    }
+  }
+
+  if (variant === "card") {
+    return (
+      <>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {items.map((item, i) => {
+            const href = previewHref(item);
+            const isImage = isImageDocument(item.type, item.name);
+            const isPdf = isPdfDocument(item.type, item.name);
+            return (
+              <div
+                key={`${item.name}-${i}`}
+                className="flex items-center gap-3 rounded-lg border border-gray-100 bg-white px-3 py-2.5"
+              >
+                <Thumbnail href={href} name={item.name} isImage={isImage} isPdf={isPdf} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
+                  <p className="text-[11px] text-gray-500">{formatFileSize(item.size)}</p>
+                </div>
+                {href && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      status === "uploaded"
+                        ? openExternal(href)
+                        : openPreview(href, item.name, isPdf, isImage)
+                    }
+                    className="text-xs font-semibold text-[var(--bni-navy)] hover:text-[var(--bni-red)] shrink-0"
+                  >
+                    {status === "uploaded" ? "Open" : "Preview"}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <PreviewModal
+          open={!!preview}
+          onClose={() => setPreview(null)}
+          href={preview?.href ?? null}
+          name={preview?.name ?? ""}
+          isPdf={preview?.isPdf ?? false}
+          isImage={preview?.isImage ?? false}
+        />
+      </>
+    );
+  }
 
   return (
-    <div className={gridClass}>
-      {items.map((item, i) => {
-        const href = previewHref(item);
-        const isImage = isImageDocument(item.type, item.name);
-        const isPdf = isPdfDocument(item.type, item.name);
+    <>
+      <div className="space-y-2">
+        {items.map((item, i) => {
+          const href = previewHref(item);
+          const isImage = isImageDocument(item.type, item.name);
+          const isPdf = isPdfDocument(item.type, item.name);
 
-        return (
-          <div
-            key={`${item.name}-${i}`}
-            className="rounded-xl border border-emerald-200/90 bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow"
-          >
-            {href ? (
-              <DocumentPreview href={href} name={item.name} isImage={isImage} isPdf={isPdf} />
-            ) : (
-              <div className="flex aspect-[16/9] items-center justify-center bg-[var(--bni-navy-lt)]/40 border-b border-gray-100">
-                <FileText className="w-12 h-12 text-[var(--bni-navy)]/45" />
-              </div>
-            )}
+          return (
+            <div
+              key={`${item.name}-${i}`}
+              className="flex items-center gap-3 rounded-lg border border-emerald-200/80 bg-emerald-50/30 px-3 py-2.5"
+            >
+              <Thumbnail href={href} name={item.name} isImage={isImage} isPdf={isPdf} />
 
-            <div className="p-3">
-              <div className="flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-gray-900 break-words" title={item.name}>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <p className="text-sm font-semibold text-gray-900 truncate" title={item.name}>
                     {item.name}
                   </p>
-                  <p className="text-xs text-gray-500 mt-0.5">{formatFileSize(item.size)}</p>
-                  <span className="inline-flex mt-2 items-center text-[10px] uppercase tracking-wider font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                </div>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-[11px] text-gray-500">{formatFileSize(item.size)}</span>
+                  <span className="text-[9px] uppercase tracking-wider font-bold text-emerald-700 bg-emerald-100 px-1 py-px rounded">
                     {badgeLabel}
                   </span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 mt-3 pt-2 border-t border-gray-100">
-                {href ? (
-                  <a
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-[var(--bni-navy)] hover:bg-[var(--bni-red)] rounded-md px-2.5 py-1.5 transition-colors"
+              <div className="flex items-center gap-1.5 shrink-0">
+                {href && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      status === "uploaded"
+                        ? openExternal(href)
+                        : openPreview(href, item.name, isPdf, isImage)
+                    }
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-white bg-[var(--bni-navy)] hover:bg-[var(--bni-red)] rounded-md px-2 py-1 transition-colors"
                   >
                     {status === "uploaded" ? (
                       <>
-                        <ExternalLink className="w-3.5 h-3.5" /> Open document
+                        <ExternalLink className="w-3 h-3" /> Open
                       </>
                     ) : (
                       <>
-                        <Eye className="w-3.5 h-3.5" /> Preview
+                        <Eye className="w-3 h-3" /> Preview
                       </>
                     )}
-                  </a>
-                ) : (
-                  <span className="text-xs text-amber-600 font-medium">Link unavailable</span>
+                  </button>
                 )}
                 {onRemove && (
                   <button
                     type="button"
                     onClick={() => onRemove(i)}
-                    className="inline-flex items-center gap-1 text-xs font-medium text-gray-400 hover:text-[var(--bni-red)] transition-colors ml-auto"
+                    className="p-1 text-gray-400 hover:text-[var(--bni-red)] transition-colors"
+                    title="Remove"
                   >
-                    <X className="w-3.5 h-3.5" /> Remove
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
             </div>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+
+      <PreviewModal
+        open={!!preview}
+        onClose={() => setPreview(null)}
+        href={preview?.href ?? null}
+        name={preview?.name ?? ""}
+        isPdf={preview?.isPdf ?? false}
+        isImage={preview?.isImage ?? false}
+      />
+    </>
   );
 }

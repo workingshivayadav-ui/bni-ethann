@@ -320,7 +320,7 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
               {savedDocs.length} file{savedDocs.length === 1 ? "" : "s"} stored securely. You can
               open each one below to confirm.
             </p>
-            <DocumentGallery items={savedDocs} status="uploaded" columns={1} />
+            <DocumentGallery items={savedDocs} status="uploaded" />
           </div>
         )}
 
@@ -631,28 +631,6 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
           badge={4}
           desc="Required — upload at least one document (brochure, logo, business card, PDF, etc.). Files are stored under your name."
         >
-          {attachments.length > 0 && (
-            <div className="space-y-3">
-              <div className="text-[11px] uppercase tracking-wider font-semibold text-gray-600">
-                Your uploaded documents
-              </div>
-              <DocumentGallery
-                items={attachments.map((a) => ({
-                  name: a.name,
-                  type: a.type,
-                  size: a.size,
-                  dataUrl: a.dataUrl,
-                }))}
-                status="ready"
-                columns={1}
-                onRemove={(i) => {
-                  setAttachments((all) => all.filter((_, j) => j !== i));
-                  setAttachError(undefined);
-                }}
-              />
-            </div>
-          )}
-
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-gray-700">
               Documents<span className="text-[var(--bni-red)] ml-0.5">*</span>
@@ -661,7 +639,7 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
               type="button"
               onClick={() => !readingFiles && attachRef.current?.click()}
               disabled={readingFiles}
-              className={`w-full border-2 border-dashed rounded-xl p-8 text-center transition disabled:opacity-60 ${
+              className={`w-full border-2 border-dashed rounded-lg p-5 text-center transition disabled:opacity-60 ${
                 attachError
                   ? "border-[var(--bni-red)] bg-red-50/30"
                   : attachments.length > 0
@@ -671,21 +649,21 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
             >
               {readingFiles ? (
                 <>
-                  <Loader2 className="w-8 h-8 mx-auto text-[var(--bni-red)] animate-spin" />
-                  <div className="mt-2 font-semibold text-gray-700">Uploading…</div>
+                  <Loader2 className="w-6 h-6 mx-auto text-[var(--bni-red)] animate-spin" />
+                  <div className="mt-1.5 text-sm font-semibold text-gray-700">Reading files…</div>
                 </>
               ) : (
                 <>
                   <Paperclip
-                    className={`w-8 h-8 mx-auto ${
+                    className={`w-6 h-6 mx-auto ${
                       attachments.length > 0 ? "text-emerald-600" : "text-gray-400"
                     }`}
                   />
-                  <div className="mt-2 font-semibold text-gray-700">
+                  <div className="mt-1.5 text-sm font-semibold text-gray-700">
                     {attachments.length > 0 ? "Add more documents" : "Click to attach files"}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    Required · JPG · PNG · PDF · DOCX · up to 10 MB each
+                  <div className="text-[11px] text-gray-500 mt-0.5">
+                    JPG · PNG · PDF · DOCX · up to 10 MB each
                   </div>
                 </>
               )}
@@ -702,6 +680,27 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
             onChange={onAttach}
             className="hidden"
           />
+
+          {attachments.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-[11px] uppercase tracking-wider font-semibold text-gray-500">
+                Your uploaded documents ({attachments.length})
+              </div>
+              <DocumentGallery
+                items={attachments.map((a) => ({
+                  name: a.name,
+                  type: a.type,
+                  size: a.size,
+                  dataUrl: a.dataUrl,
+                }))}
+                status="ready"
+                onRemove={(i) => {
+                  setAttachments((all) => all.filter((_, j) => j !== i));
+                  setAttachError(undefined);
+                }}
+              />
+            </div>
+          )}
 
           <Divider>Notes for designer</Divider>
           <Field label="Any special instructions" hint="Prefix (Dr./Prof./Adv.), product names, design preferences, corrections">
@@ -776,7 +775,6 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
                   dataUrl: a.dataUrl,
                 }))}
                 status="ready"
-                columns={1}
               />
             </div>
           )}
