@@ -2,6 +2,7 @@ import { useState, useMemo, type ComponentType } from "react";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api/client";
 import type { MemberRow, MembersResponse } from "@/lib/api/members.types";
+import { enrichMembers } from "@/lib/api/members.normalize";
 import {
   Dialog,
   DialogContent,
@@ -28,7 +29,8 @@ export const membersQueryOptions = queryOptions({
   queryFn: async (): Promise<MembersResponse> => {
     const res = await apiFetch("/api/members");
     if (!res.ok) throw new Error("Failed to load members");
-    return res.json();
+    const data: MembersResponse = await res.json();
+    return { ...data, members: enrichMembers(data.members) };
   },
 });
 

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { apiFetch } from "@/lib/api/client";
 import type { MemberRow } from "@/lib/api/members.types";
+import { enrichMember } from "@/lib/api/members.normalize";
 import { DocumentGallery } from "@/components/bni/DocumentGallery";
 import { toast } from "sonner";
 
@@ -107,7 +108,7 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
     },
     onSuccess: (data: { member?: MemberRow }) => {
       queryClient.invalidateQueries({ queryKey: ["members"] });
-      setSubmittedMember(data.member ?? null);
+      setSubmittedMember(data.member ? enrichMember(data.member) : null);
       setSubmitted(true);
       onSuccess();
     },
