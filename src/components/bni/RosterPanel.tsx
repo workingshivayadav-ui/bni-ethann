@@ -49,7 +49,31 @@ const ROSTER_TARGET = 24;
 
 export function RosterPanel() {
   const { data, isLoading, isError, error, refetch } = useQuery(membersQueryOptions);
+  const [query, setQuery] = useState("");
+  const [viewMember, setViewMember] = useState<MemberRow | null>(null);
+  const [docPreview, setDocPreview] = useState<DocumentPreviewState | null>(null);
+
   const members = data?.members ?? [];
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return members;
+    return members.filter((m) => {
+      const hay = [
+        m.firstName,
+        m.lastName,
+        m.company,
+        m.profession,
+        m.serviceArea,
+        ...m.services,
+      ]
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [members, query]);
+
+  const pct = Math.min(100, Math.round((members.length / ROSTER_TARGET) * 100));
 
   if (isLoading) {
     return (
@@ -76,30 +100,6 @@ export function RosterPanel() {
       </aside>
     );
   }
-
-  const [query, setQuery] = useState("");
-  const [viewMember, setViewMember] = useState<MemberRow | null>(null);
-  const [docPreview, setDocPreview] = useState<DocumentPreviewState | null>(null);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return members;
-    return members.filter((m) => {
-      const hay = [
-        m.firstName,
-        m.lastName,
-        m.company,
-        m.profession,
-        m.serviceArea,
-        ...m.services,
-      ]
-        .join(" ")
-        .toLowerCase();
-      return hay.includes(q);
-    });
-  }, [members, query]);
-
-  const pct = Math.min(100, Math.round((members.length / ROSTER_TARGET) * 100));
 
   return (
     <>
