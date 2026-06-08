@@ -20,6 +20,10 @@ const AttachmentSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    folder: {
+      type: String,
+      trim: true,
+    },
   },
   { _id: false }
 );
@@ -91,6 +95,10 @@ const MemberSchema = new mongoose.Schema(
       trim: true,
     },
     notes: {
+      type: String,
+      trim: true,
+    },
+    storageFolder: {
       type: String,
       trim: true,
     },

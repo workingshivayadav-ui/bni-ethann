@@ -72,6 +72,7 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | undefined>();
+  const [attachError, setAttachError] = useState<string | undefined>();
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [serviceInput, setServiceInput] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -126,10 +127,17 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
     } else if (n === 3) {
       check("mobile");
       check("email");
+    } else if (n === 4) {
+      if (attachments.length === 0) {
+        setAttachError("At least one document is required.");
+      } else {
+        setAttachError(undefined);
+      }
     }
     setErrors(next);
     const photoMissing = n === 1 && !photoDataUrl;
-    return Object.keys(next).length === 0 && !photoMissing;
+    const attachMissing = n === 4 && attachments.length === 0;
+    return Object.keys(next).length === 0 && !photoMissing && !attachMissing;
   }
 
   function nx() {
@@ -165,6 +173,7 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
       added.push({ name: f.name, type: f.type, size: f.size, dataUrl: url });
     }
     setAttachments((a) => [...a, ...added]);
+    if (added.length > 0) setAttachError(undefined);
     if (attachRef.current) attachRef.current.value = "";
   }
 
@@ -186,11 +195,15 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
   }
 
   function submit() {
-    if (!validateStep(1) || !validateStep(2) || !validateStep(3)) {
+    if (!validateStep(1) || !validateStep(2) || !validateStep(3) || !validateStep(4)) {
       if (!photoDataUrl) {
         setPhotoError("Profile photo is required.");
         setStep(1);
         toast.error("Please upload your profile photo before submitting.");
+      } else if (attachments.length === 0) {
+        setAttachError("At least one document is required.");
+        setStep(4);
+        toast.error("Please attach at least one document before submitting.");
       } else {
         toast.error("Please fix highlighted fields.");
       }
@@ -207,6 +220,7 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
     setForm(initial);
     setPhotoDataUrl(null);
     setPhotoError(undefined);
+    setAttachError(undefined);
     setAttachments([]);
     setErrors({});
     setStep(1);
@@ -513,18 +527,28 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
       )}
 
       {step === 4 && (
-        <Step title="Attachments" badge={4} desc="Optional — share logos, brochures, existing cards, reference images, PDFs.">
+        <Step title="Documents" badge={4} desc="Required — upload at least one document (brochure, logo, business card, PDF, etc.). Files are stored under your name.">
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-gray-700">
+              Documents<span className="text-[var(--bni-red)] ml-0.5">*</span>
+            </label>
           <button
             type="button"
             onClick={() => attachRef.current?.click()}
-            className="w-full border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-[var(--bni-red)] hover:bg-[var(--bni-red-lt)]/40 transition"
+            className={`w-full border-2 border-dashed rounded-xl p-8 text-center hover:border-[var(--bni-red)] hover:bg-[var(--bni-red-lt)]/40 transition ${
+              attachError ? "border-[var(--bni-red)]" : "border-gray-200"
+            }`}
           >
             <Paperclip className="w-8 h-8 mx-auto text-gray-400" />
             <div className="mt-2 font-semibold text-gray-700">Click to attach files</div>
             <div className="text-xs text-gray-500 mt-1">
-              JPG · PNG · PDF · SVG · DOCX · up to 10 MB each
+              Required · JPG · PNG · PDF · DOCX · up to 10 MB each
             </div>
           </button>
+          {attachError && (
+            <div className="text-xs text-[var(--bni-red)] font-medium">{attachError}</div>
+          )}
+          </div>
           <input
             ref={attachRef}
             type="file"
@@ -552,7 +576,10 @@ export function MemberForm({ onSuccess }: { onSuccess: () => void }) {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setAttachments((all) => all.filter((_, j) => j !== i))}
+                    onClick={() => {
+                      setAttachments((all) => all.filter((_, j) => j !== i));
+                      setAttachError(undefined);
+                    }}
                     className="text-gray-400 hover:text-[var(--bni-red)]"
                   >
                     <X className="w-4 h-4" />

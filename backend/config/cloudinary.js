@@ -8,35 +8,32 @@ const connectCloudinary = () => {
   });
 };
 
-const uploadOnCloudinary = async (fileData) => {
+const uploadOnCloudinary = async (fileData, options = {}) => {
   try {
     if (!fileData) return null;
 
-    // Handle data URLs (base64)
+    const uploadOptions = {
+      resource_type: "auto",
+      ...(options.folder ? { folder: options.folder } : {}),
+      ...(options.public_id ? { public_id: options.public_id, overwrite: true } : {}),
+    };
+
     if (typeof fileData === "string" && fileData.startsWith("data:")) {
-      const result = await cloudinary.uploader.upload(fileData, {
-        resource_type: "auto",
-      });
+      const result = await cloudinary.uploader.upload(fileData, uploadOptions);
       return result.secure_url || result.url;
     }
 
-    // Handle Buffer or file path
     if (typeof fileData === "string") {
-      const result = await cloudinary.uploader.upload(fileData, {
-        resource_type: "auto",
-      });
+      const result = await cloudinary.uploader.upload(fileData, uploadOptions);
       return result.secure_url || result.url;
     }
 
     if (fileData instanceof Buffer) {
       return await new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          { resource_type: "auto" },
-          (err, res) => {
-            if (err) reject(err);
-            resolve(res.secure_url || res.url);
-          }
-        );
+        const stream = cloudinary.uploader.upload_stream(uploadOptions, (err, res) => {
+          if (err) reject(err);
+          else resolve(res?.secure_url || res?.url || null);
+        });
         stream.end(fileData);
       });
     }

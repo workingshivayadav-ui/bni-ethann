@@ -2,6 +2,10 @@ import express from "express";
 import mongoose from "mongoose";
 import Member from "../models/member.js";
 import uploadOnCloudinary from "../config/cloudinary.js";
+import {
+  attachmentPublicId,
+  memberStorageFolder,
+} from "../lib/memberFolder.js";
 
 const router = express.Router();
 
@@ -46,10 +50,12 @@ const formatMember = (doc) => {
     linkedin: doc.linkedin || null,
     notes: doc.notes || null,
     photoDataUrl: doc.photoUrl || doc.photoDataUrl || null,
+    storageFolder: doc.storageFolder || null,
     attachments: (doc.attachments || []).map((a) => ({
       name: a.name,
       type: a.type,
       size: a.size,
+      url: a.url || null,
     })),
   };
 };
@@ -128,12 +134,29 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // Attachment validation
+    // Attachment validation — at least one document required
+    const rawAttachments = Array.isArray(data.attachments) ? data.attachments : [];
+    if (rawAttachments.length === 0) {
+      const msg = "At least one document is required";
+      return res.status(400).json({
+        success: false,
+        message: msg,
+        error: msg,
+      });
+    }
+
     let totalSize = 0;
     const attachments = [];
 
-    for (const file of data.attachments || []) {
-      if (!file.dataUrl) continue;
+    for (const file of rawAttachments) {
+      if (!file?.dataUrl || typeof file.dataUrl !== "string") {
+        const msg = "Each document must include file data";
+        return res.status(400).json({
+          success: false,
+          message: msg,
+          error: msg,
+        });
+      }
 
       const size = estimateBytesFromDataUrl(file.dataUrl);
 
@@ -141,6 +164,7 @@ router.post("/", async (req, res) => {
         return res.status(400).json({
           success: false,
           message: `${file.name} exceeds 10 MB limit`,
+          error: `${file.name} exceeds 10 MB limit`,
         });
       }
 
@@ -161,8 +185,13 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // Upload photo
-    const photoUrl = await uploadOnCloudinary(data.photoDataUrl);
+    const storageFolder = memberStorageFolder(data.firstName, data.lastName);
+
+    // Upload photo to member folder
+    const photoUrl = await uploadOnCloudinary(data.photoDataUrl, {
+      folder: storageFolder,
+      public_id: "profile-photo",
+    });
 
     if (!photoUrl) {
       const msg = "Profile photo upload failed. Please try again.";
@@ -173,11 +202,23 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // Upload attachments
+    // Upload attachments into the same member folder
     const uploadedAttachments = [];
 
     for (const file of attachments) {
-      const url = await uploadOnCloudinary(file.dataUrl);
+      const url = await uploadOnCloudinary(file.dataUrl, {
+        folder: storageFolder,
+        public_id: attachmentPublicId(file.name),
+      });
+
+      if (!url) {
+        const msg = `Failed to upload document "${file.name}". Please try again.`;
+        return res.status(400).json({
+          success: false,
+          message: msg,
+          error: msg,
+        });
+      }
 
       uploadedAttachments.push({
         name: file.name,
@@ -200,6 +241,7 @@ router.post("/", async (req, res) => {
         createdAt: new Date().toISOString(),
         ...fields,
         photoUrl,
+        storageFolder,
         attachments: uploadedAttachments,
       });
 
@@ -228,6 +270,7 @@ router.post("/", async (req, res) => {
       linkedin: data.linkedin,
       notes: data.notes,
       photoUrl,
+      storageFolder,
       attachments: uploadedAttachments,
     });
 

@@ -17,7 +17,8 @@ export type MemberRow = {
   linkedin: string | null;
   notes: string | null;
   photoDataUrl: string | null;
-  attachments: Array<{ name: string; type: string; size: number }>;
+  storageFolder: string | null;
+  attachments: Array<{ name: string; type: string; size: number; url: string | null }>;
 };
 
 export type MembersResponse = {
