@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   CheckCircle2,
   ExternalLink,
@@ -6,12 +7,6 @@ import {
   FileText,
   X,
 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 
 export type DocumentItem = {
   name: string;
@@ -52,7 +47,12 @@ async function toPreviewUrl(href: string): Promise<string> {
   return href;
 }
 
-function PreviewModal({
+function pdfEmbedSrc(href: string) {
+  if (href.startsWith("blob:") || href.startsWith("data:")) return href;
+  return `${href}#view=FitH`;
+}
+
+function PreviewOverlay({
   open,
   onClose,
   href,
@@ -70,6 +70,19 @@ function PreviewModal({
   const [src, setSrc] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [open, onClose]);
 
   useEffect(() => {
     if (!open || !href) {
@@ -105,27 +118,71 @@ function PreviewModal({
     };
   }, [open, href]);
 
-  return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-4xl w-[95vw] p-0 gap-0 overflow-hidden">
-        <DialogHeader className="px-4 py-3 border-b border-gray-100">
-          <DialogTitle className="text-sm font-semibold truncate pr-6">{name}</DialogTitle>
-        </DialogHeader>
-        <div className="bg-gray-50 min-h-[50vh] max-h-[75vh] flex items-center justify-center">
+  if (!open || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/75 p-3 sm:p-6"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Preview ${name}`}
+    >
+      <div
+        className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-100 shrink-0">
+          <p className="text-sm font-semibold text-gray-900 truncate">{name}</p>
+          <div className="flex items-center gap-2 shrink-0">
+            {href && (
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--bni-navy)] hover:text-[var(--bni-red)]"
+              >
+                <ExternalLink className="w-3.5 h-3.5" /> New tab
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+              aria-label="Close preview"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 min-h-0 bg-gray-50 flex items-center justify-center overflow-hidden">
           {loading && <p className="text-sm text-gray-500">Loading preview…</p>}
           {error && (
-            <p className="text-sm text-[var(--bni-red)] px-4 text-center">
-              Could not load preview. Try downloading the file instead.
-            </p>
+            <div className="text-center px-6">
+              <p className="text-sm text-[var(--bni-red)]">Could not load preview.</p>
+              {href && (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 mt-3 text-sm font-semibold text-[var(--bni-navy)] hover:underline"
+                >
+                  <ExternalLink className="w-4 h-4" /> Open in new tab
+                </a>
+              )}
+            </div>
           )}
           {!loading && !error && src && isImage && (
-            <img src={src} alt={name} className="max-h-[75vh] max-w-full object-contain" />
+            <div className="w-full h-full flex items-center justify-center p-4 overflow-auto scrollbar-hide">
+              <img src={src} alt={name} className="max-h-[78vh] max-w-full object-contain" />
+            </div>
           )}
           {!loading && !error && src && isPdf && (
             <iframe
-              src={src}
+              src={pdfEmbedSrc(src)}
               title={name}
-              className="w-full h-[75vh] border-0 bg-white"
+              className="w-full h-[78vh] border-0 bg-white"
             />
           )}
           {!loading && !error && src && !isImage && !isPdf && (
@@ -142,14 +199,14 @@ function PreviewModal({
             </div>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
 function Thumbnail({
   href,
-  name,
   isImage,
   isPdf,
 }: {
@@ -165,7 +222,7 @@ function Thumbnail({
       <img
         src={href}
         alt=""
-        className="w-11 h-11 rounded-lg object-cover border border-gray-100 bg-white shrink-0"
+        className="w-10 h-10 rounded-md object-cover border border-gray-100 bg-white shrink-0"
         onError={() => setFailed(true)}
       />
     );
@@ -173,11 +230,11 @@ function Thumbnail({
 
   return (
     <div
-      className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 border ${
-        isPdf ? "bg-red-50 border-red-100" : "bg-[var(--bni-navy-lt)] border-gray-100"
+      className={`w-10 h-10 rounded-md flex items-center justify-center shrink-0 border ${
+        isPdf ? "bg-red-50 border-red-100" : "bg-white border-gray-100"
       }`}
     >
-      <FileText className={`w-5 h-5 ${isPdf ? "text-red-500" : "text-[var(--bni-navy)]/50"}`} />
+      <FileText className={`w-4 h-4 ${isPdf ? "text-red-500" : "text-[var(--bni-navy)]/45"}`} />
     </div>
   );
 }
@@ -208,131 +265,66 @@ export function DocumentGallery({
   }
 
   const badgeLabel = status === "uploaded" ? "Uploaded" : "Ready";
+  const actionLabel = status === "uploaded" ? "Open" : "Preview";
+  const ActionIcon = status === "uploaded" ? ExternalLink : Eye;
 
-  function openPreview(href: string, name: string, isPdf: boolean, isImage: boolean) {
+  function handleOpen(href: string, name: string, isPdf: boolean, isImage: boolean) {
     setPreview({ href, name, isPdf, isImage });
   }
 
-  function openExternal(href: string) {
-    if (href.startsWith("data:")) {
-      toPreviewUrl(href).then((url) => {
-        window.open(url, "_blank", "noopener,noreferrer");
-        if (url.startsWith("blob:")) {
-          setTimeout(() => URL.revokeObjectURL(url), 60_000);
-        }
-      });
-    } else {
-      window.open(href, "_blank", "noopener,noreferrer");
-    }
-  }
-
-  if (variant === "card") {
-    return (
-      <>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {items.map((item, i) => {
-            const href = previewHref(item);
-            const isImage = isImageDocument(item.type, item.name);
-            const isPdf = isPdfDocument(item.type, item.name);
-            return (
-              <div
-                key={`${item.name}-${i}`}
-                className="flex items-center gap-3 rounded-lg border border-gray-100 bg-white px-3 py-2.5"
-              >
-                <Thumbnail href={href} name={item.name} isImage={isImage} isPdf={isPdf} />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
-                  <p className="text-[11px] text-gray-500">{formatFileSize(item.size)}</p>
-                </div>
-                {href && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      status === "uploaded"
-                        ? openExternal(href)
-                        : openPreview(href, item.name, isPdf, isImage)
-                    }
-                    className="text-xs font-semibold text-[var(--bni-navy)] hover:text-[var(--bni-red)] shrink-0"
-                  >
-                    {status === "uploaded" ? "Open" : "Preview"}
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </div>
-        <PreviewModal
-          open={!!preview}
-          onClose={() => setPreview(null)}
-          href={preview?.href ?? null}
-          name={preview?.name ?? ""}
-          isPdf={preview?.isPdf ?? false}
-          isImage={preview?.isImage ?? false}
-        />
-      </>
-    );
-  }
+  const rowClass =
+    variant === "card"
+      ? "flex items-center gap-2.5 rounded-md border border-gray-100 bg-white px-2.5 py-2"
+      : "flex items-center gap-2.5 rounded-md border border-emerald-200/70 bg-white px-2.5 py-2 shadow-sm";
 
   return (
     <>
-      <div className="space-y-2">
+      <div className={variant === "card" ? "grid gap-1.5 sm:grid-cols-2" : "space-y-1.5"}>
         {items.map((item, i) => {
           const href = previewHref(item);
           const isImage = isImageDocument(item.type, item.name);
           const isPdf = isPdfDocument(item.type, item.name);
 
           return (
-            <div
-              key={`${item.name}-${i}`}
-              className="flex items-center gap-3 rounded-lg border border-emerald-200/80 bg-emerald-50/30 px-3 py-2.5"
-            >
+            <div key={`${item.name}-${i}`} className={rowClass}>
               <Thumbnail href={href} name={item.name} isImage={isImage} isPdf={isPdf} />
 
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                  <p className="text-sm font-semibold text-gray-900 truncate" title={item.name}>
+                <div className="flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                  <p className="text-[13px] font-medium text-gray-900 truncate" title={item.name}>
                     {item.name}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-[11px] text-gray-500">{formatFileSize(item.size)}</span>
-                  <span className="text-[9px] uppercase tracking-wider font-bold text-emerald-700 bg-emerald-100 px-1 py-px rounded">
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-[10px] text-gray-500">{formatFileSize(item.size)}</span>
+                  <span className="text-[8px] uppercase tracking-wider font-bold text-emerald-700 bg-emerald-50 px-1 rounded">
                     {badgeLabel}
                   </span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-1.5 shrink-0">
-                {href && (
+              <div className="flex items-center gap-1 shrink-0">
+                {href ? (
                   <button
                     type="button"
-                    onClick={() =>
-                      status === "uploaded"
-                        ? openExternal(href)
-                        : openPreview(href, item.name, isPdf, isImage)
-                    }
-                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-white bg-[var(--bni-navy)] hover:bg-[var(--bni-red)] rounded-md px-2 py-1 transition-colors"
+                    onClick={() => handleOpen(href, item.name, isPdf, isImage)}
+                    className="inline-flex items-center gap-1 text-[10px] font-semibold text-white bg-[var(--bni-navy)] hover:bg-[var(--bni-red)] rounded px-2 py-1 transition-colors"
                   >
-                    {status === "uploaded" ? (
-                      <>
-                        <ExternalLink className="w-3 h-3" /> Open
-                      </>
-                    ) : (
-                      <>
-                        <Eye className="w-3 h-3" /> Preview
-                      </>
-                    )}
+                    <ActionIcon className="w-3 h-3" />
+                    {actionLabel}
                   </button>
+                ) : (
+                  <span className="text-[10px] text-amber-600">Unavailable</span>
                 )}
                 {onRemove && (
                   <button
                     type="button"
                     onClick={() => onRemove(i)}
-                    className="p-1 text-gray-400 hover:text-[var(--bni-red)] transition-colors"
+                    className="p-1 text-gray-400 hover:text-[var(--bni-red)]"
                     title="Remove"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <X className="w-3 h-3" />
                   </button>
                 )}
               </div>
@@ -341,7 +333,7 @@ export function DocumentGallery({
         })}
       </div>
 
-      <PreviewModal
+      <PreviewOverlay
         open={!!preview}
         onClose={() => setPreview(null)}
         href={preview?.href ?? null}

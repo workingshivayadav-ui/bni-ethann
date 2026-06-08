@@ -109,7 +109,7 @@ export function RosterPanel() {
           {filtered.length} shown
         </div>
 
-        <div className="max-h-[480px] overflow-y-auto pr-1">
+        <div className="max-h-[480px] overflow-y-auto overflow-x-hidden pr-1 scrollbar-hide">
           {filtered.length === 0 ? (
             <div className="text-center py-12 text-gray-400">
               <Search className="w-10 h-10 mx-auto opacity-50" strokeWidth={1.5} />
@@ -238,7 +238,7 @@ function MemberDetailDialog({
 
   return (
     <Dialog open={!!member} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto p-0 gap-0">
+      <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto overflow-x-hidden p-0 gap-0 scrollbar-hide">
         <div className="bg-[var(--bni-navy)] px-6 py-5 text-white">
           <DialogHeader>
             <DialogTitle className="font-display text-2xl text-white">
@@ -307,10 +307,10 @@ function MemberDetailDialog({
             </div>
           </section>
 
-          <section className="rounded-lg border border-emerald-200/80 bg-emerald-50/30 p-3">
+          <section className="rounded-lg border border-emerald-200/60 bg-gradient-to-b from-emerald-50/50 to-white p-3">
             <div className="flex items-center gap-2 mb-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              <h3 className="font-display font-bold text-base text-gray-900">
+              <h3 className="text-sm font-semibold text-gray-900">
                 Uploaded documents ({member.attachments.length})
               </h3>
             </div>
